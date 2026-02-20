@@ -81,7 +81,7 @@ header { grid-column: 1/-1; display: flex; align-items: center; gap: 20px;
 .btn:disabled { opacity: .35; cursor: not-allowed; }
 
 #output-canvas { max-width: 100%; max-height: 100%; display: none;
-  cursor: crosshair; image-rendering: auto; }
+  image-rendering: auto; }
 #output-canvas.visible { display: block; }
 #src-video { display: none; }
 
@@ -241,17 +241,43 @@ footer { grid-column: 1/-1; display: flex; align-items: center; gap: 16px;
           <div class="toggle-track"></div><div class="toggle-thumb"></div>
         </label>
       </div>
+      <div class="control-row">
+        <span class="control-label">Show track box <span style="color:var(--border2);font-size:10px;">(debug)</span></span>
+        <label class="toggle">
+          <input type="checkbox" id="toggle-showbox"/>
+          <div class="toggle-track"></div><div class="toggle-thumb"></div>
+        </label>
+      </div>
+      <div class="control-row">
+        <span class="control-label">Show tracking box</span>
+        <label class="toggle">
+          <input type="checkbox" id="toggle-showbox"/>
+          <div class="toggle-track"></div><div class="toggle-thumb"></div>
+        </label>
+      </div>
       <div class="control-row" style="flex-direction:column;align-items:flex-start;gap:8px;padding-top:10px;">
         <div class="range-wrap">
-          <div class="range-header"><span class="control-label">Bokeh blur</span><span class="stat-val" id="blur-val">51</span></div>
-          <input type="range" id="slider-blur" min="11" max="101" step="2" value="51"/>
+          <div class="range-header"><span class="control-label">Bokeh blur</span><span class="stat-val" id="blur-val">31</span></div>
+          <input type="range" id="slider-blur" min="11" max="101" step="2" value="31"/>
         </div>
       </div>
       <div class="control-row" style="flex-direction:column;align-items:flex-start;gap:8px;padding-top:10px;">
         <div class="range-wrap">
-          <div class="range-header"><span class="control-label">Detect interval</span><span class="stat-val" id="det-val">15</span></div>
-          <input type="range" id="slider-detect" min="5" max="60" step="5" value="15"/>
+          <div class="range-header"><span class="control-label">Detect interval</span><span class="stat-val" id="det-val">30</span></div>
+          <input type="range" id="slider-detect" min="5" max="90" step="5" value="30"/>
         </div>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">Performance Preset</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:4px;">
+        <button class="btn" id="preset-fast"    title="Max FPS — least blur quality">⚡ Fast</button>
+        <button class="btn" id="preset-balance" title="Good balance for CPU">⚖ Balanced</button>
+        <button class="btn" id="preset-quality" title="Better quality, lower FPS">✦ Quality</button>
+      </div>
+      <div style="font-size:10px;color:var(--muted);margin-top:2px;" id="preset-hint">
+        Balanced selected — ~15–20 FPS on CPU
       </div>
     </div>
 
@@ -259,6 +285,7 @@ footer { grid-column: 1/-1; display: flex; align-items: center; gap: 16px;
       <div class="section-title">Actions</div>
       <div style="display:flex;flex-direction:column;gap:8px;">
         <button class="btn danger" id="btn-release" disabled>✕ Release Lock</button>
+        <button class="btn"        id="btn-turbo">⚡ Turbo Mode</button>
         <button class="btn"        id="btn-switch-src">⇄ Switch Source</button>
       </div>
     </div>
@@ -534,8 +561,9 @@ function sendFrame() {
     cursor_y:     cy,
     clicked:      clicking,
     low_light:    $('toggle-lowlight').checked,
+    show_box:     $('toggle-showbox').checked,
     bokeh_k:      parseInt($('slider-blur').value),
-    detect_every: 25,
+    detect_every: parseInt($('slider-detect').value),
   });
 
   if (clicking) {
@@ -667,12 +695,64 @@ $('btn-pause').addEventListener('click', () => {
 $('slider-blur').addEventListener('input',   () => $('blur-val').textContent  = $('slider-blur').value);
 $('slider-detect').addEventListener('input', () => $('det-val').textContent   = $('slider-detect').value);
 
+// ── Turbo mode (CPU max FPS preset) ──────────────────────────────────────
+let turbo = false;
+$('btn-turbo').addEventListener('click', () => {
+  turbo = !turbo;
+  if (turbo) {
+    $('slider-blur').value   = '21';   $('blur-val').textContent  = '21';
+    $('slider-detect').value = '30';   $('det-val').textContent   = '30';
+    $('btn-turbo').textContent = '⚡ Turbo ON';
+    $('btn-turbo').style.borderColor = 'var(--green)';
+    $('btn-turbo').style.color       = 'var(--green)';
+    toast('Turbo mode ON — max CPU FPS', 'info', 2000);
+    log('Turbo mode: blur=21, detect=30', 'green');
+  } else {
+    $('slider-blur').value   = '41';   $('blur-val').textContent  = '41';
+    $('slider-detect').value = '20';   $('det-val').textContent   = '20';
+    $('btn-turbo').textContent = '⚡ Turbo Mode';
+    $('btn-turbo').style.borderColor = '';
+    $('btn-turbo').style.color       = '';
+    toast('Turbo mode OFF', 'info', 2000);
+    log('Normal mode: blur=41, detect=20', 'amber');
+  }
+});
+
 // ── Keyboard ──────────────────────────────────────────────────────────────
 document.addEventListener('keydown', e => {
   if (e.key === ' ')           { $('btn-pause').click(); e.preventDefault(); }
   if (e.key === 'Escape')      { $('btn-release').click(); }
   if (e.key.toLowerCase()==='w') { $('btn-webcam').click(); }
 });
+
+// ── Performance presets ───────────────────────────────────────────────────
+const PRESETS = {
+  fast:    { blur: 15, detect: 60, hint: '⚡ Fast — ~20–28 FPS on CPU, minimal blur quality' },
+  balance: { blur: 31, detect: 30, hint: '⚖ Balanced — ~15–20 FPS on CPU' },
+  quality: { blur: 51, detect: 15, hint: '✦ Quality — ~8–14 FPS on CPU, best bokeh' },
+};
+
+function applyPreset(name) {
+  const p = PRESETS[name];
+  $('slider-blur').value   = p.blur;
+  $('slider-detect').value = p.detect;
+  $('blur-val').textContent = p.blur;
+  $('det-val').textContent  = p.detect;
+  $('preset-hint').textContent = p.hint;
+  // Highlight active button
+  ['fast','balance','quality'].forEach(k => {
+    $('preset-'+k).style.borderColor = k === name ? 'var(--green)' : '';
+    $('preset-'+k).style.color       = k === name ? 'var(--green)' : '';
+  });
+  log(`Preset: ${name} (blur=${p.blur}, detect=${p.detect})`, 'amber');
+}
+
+$('preset-fast').addEventListener('click',    () => applyPreset('fast'));
+$('preset-balance').addEventListener('click', () => applyPreset('balance'));
+$('preset-quality').addEventListener('click', () => applyPreset('quality'));
+
+// Default to balanced on load
+applyPreset('balance');
 
 // ── Init ──────────────────────────────────────────────────────────────────
 log('FOCUSR ready — choose a video source above', 'green');
