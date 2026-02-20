@@ -1,24 +1,29 @@
 """
-app.py  —  FastAPI WebSocket backend (fixed)
-=============================================
-Fixes applied:
-  1. Models loaded ONCE at startup (not per connection) — prevents WS timeout
-  2. CORS middleware added
-  3. /health endpoint for diagnostics
-  4. Per-frame errors are caught and reported back to client (not silent)
-  5. WebSocket ping/pong keepalive
-  6. Graceful startup failure with clear console message
-
-Run:
-    python app.py
-Or:
-    uvicorn app:app --host 0.0.0.0 --port 8000
+app.py  —  FOCUSR backend  (CPU-optimised build)
+=================================================
+CPU FPS improvements applied:
+  1. asyncio.run_in_executor  — CV/AI work runs in a thread pool,
+                                never blocks uvicorn's event loop
+  2. Frame-drop guard         — if the pipeline is still busy with the
+                                previous frame, incoming frames are
+                                silently dropped (browser keeps sending,
+                                server catches up)
+  3. YOLO at 320px input      — half the pixels YOLO sees → ~2× faster
+  4. Segmentation every 6 frames (not 3)
+  5. GrabCut disabled         — replaced by feathered ellipse (<1 ms)
+  6. Bokeh blur capped at 51  — bigger kernels give diminishing returns
+                                but cost linearly
+  7. Models loaded once at startup (not per-connection)
+  8. CORS + health endpoint retained
 """
 
+import asyncio
 import base64
+import concurrent.futures
 import json
 import logging
 import sys
+from contextlib import asynccontextmanager
 from pathlib import Path
 
 import cv2
@@ -29,7 +34,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
-# ---------------------------------------------------------------------------
+# ── Logging ─────────────────────────────────────────────────────────────
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s  %(levelname)-8s  %(name)s — %(message)s",
@@ -37,25 +42,47 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# ---------------------------------------------------------------------------
-# Import AI modules with helpful error messages
-# ---------------------------------------------------------------------------
+# ── Import pipeline modules ──────────────────────────────────────────────
 try:
     from detector import Detector
     from tracker import SubjectTracker
     from segmenter import Segmenter
     from renderer import Renderer
 except ImportError as e:
-    logger.error("Failed to import pipeline module: %s", e)
-    logger.error("Make sure all .py files are in the same folder as app.py")
+    logger.error("Import error: %s", e)
+    logger.error("Run:  python install.py   to fix missing packages")
     sys.exit(1)
 
-# ---------------------------------------------------------------------------
-# FastAPI app
-# ---------------------------------------------------------------------------
-app = FastAPI(title="FOCUSR — Smart AutoFocus API")
+# Thread pool for running blocking CV/AI code without stalling uvicorn
+_executor = concurrent.futures.ThreadPoolExecutor(max_workers=2)
 
-# ── CORS — allow the browser to connect from any origin ──────────────────
+# ── Shared model (loaded once at startup) ────────────────────────────────
+_shared_detector: "Detector | None" = None
+_startup_error:   str | None = None
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Load models on startup, clean up on shutdown."""
+    global _shared_detector, _startup_error
+    try:
+        logger.info("Loading YOLOv8n …")
+        loop = asyncio.get_event_loop()
+        _shared_detector = await loop.run_in_executor(
+            _executor,
+            lambda: Detector(model_path="yolov8n.pt", person_only=True)
+        )
+        logger.info("✓ YOLOv8n ready (imgsz=320, CPU mode)")
+    except Exception as exc:
+        _startup_error = str(exc)
+        logger.error("Model load failed: %s", exc, exc_info=True)
+    yield
+    # Shutdown: nothing to clean up for YOLO/torch
+
+
+# ── App ──────────────────────────────────────────────────────────────────
+app = FastAPI(title="FOCUSR — Smart AutoFocus (CPU build)", lifespan=lifespan)
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -68,48 +95,29 @@ STATIC_DIR = Path(__file__).parent / "static"
 STATIC_DIR.mkdir(exist_ok=True)
 app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 
-# ---------------------------------------------------------------------------
-# SHARED MODELS — loaded once at startup, reused by every session
-# ---------------------------------------------------------------------------
-_shared_detector  = None
-_startup_error    = None
 
-
-@app.on_event("startup")
-async def load_models():
-    """Load heavy models once. If this fails the server still starts but
-    WebSocket sessions will return an error message to the client."""
-    global _shared_detector, _startup_error
-    try:
-        logger.info("Loading YOLOv8 model (first run may download ~6 MB)…")
-        _shared_detector = Detector(model_path="yolov8n.pt")
-        logger.info("✓ Models ready.")
-    except Exception as exc:
-        _startup_error = str(exc)
-        logger.error("Model load failed: %s", exc, exc_info=True)
-
-
-# ---------------------------------------------------------------------------
-# Per-connection session
-# ---------------------------------------------------------------------------
+# ── Per-connection session ───────────────────────────────────────────────
 class Session:
-    """
-    Pipeline state for one WebSocket client.
-    Uses the shared detector (already loaded) and creates its own
-    tracker / segmenter / renderer instances (these are lightweight).
-    """
+    # CPU-tuned defaults — defined directly here, no external dict needed
+    DETECT_EVERY  = 20    # run YOLO every N frames
+    MASK_EVERY    = 6     # regenerate mask every N frames
+    MAX_FRAME_W   = 480   # resize input before all processing
+    BLUR_KSIZE    = 31    # bokeh kernel size
 
     def __init__(self):
         if _shared_detector is None:
-            raise RuntimeError(
-                "Models not ready yet — "
-                + (_startup_error or "still loading, retry in a moment")
-            )
-        self.detector  = _shared_detector          # shared — read-only inference
-        self.tracker   = SubjectTracker()          # per-client state
-        self.segmenter = Segmenter(edge_blur_ksize=21)
-        self.renderer  = Renderer(blur_ksize=51, blur_sigma=20.0)
-
+            raise RuntimeError(_startup_error or "Models still loading - retry in a moment")
+        self.detector  = _shared_detector
+        # shrink_factor=0.0 because detector.detect() already produces
+        # a shrunk bbox as det["bbox"].  Shrinking again in tracker.init()
+        # would apply the reduction twice.  (Bug 2 fix)
+        self.tracker   = SubjectTracker(shrink_factor=0.0)
+        self.segmenter = Segmenter(edge_blur_ksize=15, cpu_mode=True, mp_model=0)
+        self.renderer  = Renderer(
+            blur_ksize=self.BLUR_KSIZE,
+            blur_sigma=12.0,
+            show_box=False,
+        )
         self.tracking   = False
         self.bbox       = None
         self.mask       = None
@@ -117,55 +125,67 @@ class Session:
         self.conf       = 0.0
         self.frame_id   = 0
         self.last_dets: list[dict] = []
-        self.detect_every = 15
-        self.mask_every   = 3
+        self.detect_every = self.DETECT_EVERY
+        self.mask_every   = self.MASK_EVERY
 
-    def process(self, msg: dict) -> tuple[np.ndarray | None, dict]:
-        # ── Decode frame ────────────────────────────────────────────────
+    # Called from a thread pool — may use blocking CV/numpy freely
+    def process_blocking(self, msg: dict) -> tuple[np.ndarray | None, dict]:
+        # ── Decode ──────────────────────────────────────────────────────
         frame_b64 = msg.get("frame", "")
         if not frame_b64:
             return None, {}
-
         try:
-            raw   = base64.b64decode(frame_b64)
-            arr   = np.frombuffer(raw, np.uint8)
-            frame = cv2.imdecode(arr, cv2.IMREAD_COLOR)
-        except Exception as exc:
-            logger.warning("Frame decode failed: %s", exc)
+            frame = cv2.imdecode(
+                np.frombuffer(base64.b64decode(frame_b64), np.uint8),
+                cv2.IMREAD_COLOR,
+            )
+        except Exception:
             return None, {}
-
         if frame is None:
-            logger.warning("imdecode returned None — bad JPEG?")
             return None, {}
 
-        # ── Live tunable params ──────────────────────────────────────────
+        # ── Resize down before ALL processing ───────────────────────────
+        h, w = frame.shape[:2]
+        scale_to_client = 1.0   # ratio of original w to resized w
+        if w > self.MAX_FRAME_W:
+            scale_to_client = self.MAX_FRAME_W / w
+            frame = cv2.resize(frame, (self.MAX_FRAME_W, int(h * scale_to_client)),
+                               interpolation=cv2.INTER_LINEAR)
+
+        # ── Live client params ───────────────────────────────────────────
         if "detect_every" in msg:
-            self.detect_every = max(1, int(msg["detect_every"]))
+            self.detect_every = max(5, int(msg["detect_every"]))
         if "bokeh_k" in msg:
-            self.renderer.blur_ksize = int(msg["bokeh_k"]) | 1
+            # Cap at 51 on CPU — bigger buys almost nothing visually
+            self.renderer.blur_ksize = min(51, int(msg["bokeh_k"]) | 1)
         self.renderer.low_light = bool(msg.get("low_light", False))
+        # FIX 3 — show/hide tracking rectangle live from the browser toggle
+        if "show_box" in msg:
+            self.renderer.show_box = bool(msg["show_box"])
 
         # ── Release ──────────────────────────────────────────────────────
         if msg.get("release"):
             self.tracker.reset()
             self.tracking = False
             self.bbox = self.mask = None
-            self.label = ""
-            self.conf  = 0.0
+            self.label = ""; self.conf = 0.0
 
         cursor_x = msg.get("cursor_x")
         cursor_y = msg.get("cursor_y")
         clicked  = bool(msg.get("clicked", False))
         self.frame_id += 1
 
-        # ── Periodic detection ───────────────────────────────────────────
-        run_detect = (self.frame_id % self.detect_every == 0
-                      or (clicked and not self.last_dets))
-        if run_detect:
+        # Scale cursor coords to match resized frame
+        if cursor_x is not None and cursor_y is not None and scale_to_client < 1.0:
+            cursor_x = int(cursor_x * scale_to_client)
+            cursor_y = int(cursor_y * scale_to_client)
+
+        # ── Periodic background detection ────────────────────────────────
+        if self.frame_id % self.detect_every == 0 or (clicked and not self.last_dets):
             self.last_dets = self.detector.detect(frame)
 
         # ── Click → lock ─────────────────────────────────────────────────
-        if clicked and cursor_x is not None and cursor_y is not None:
+        if clicked and cursor_x is not None:
             if not self.last_dets:
                 self.last_dets = self.detector.detect(frame)
             chosen = self.detector.pick_closest(self.last_dets, cursor_x, cursor_y)
@@ -182,15 +202,13 @@ class Session:
                 self.bbox = self.mask = None
 
         # ── Hover preview ────────────────────────────────────────────────
-        hover_box = None
-        hover_label = ""
+        hover_box = None; hover_label = ""
         if not clicked and cursor_x is not None and self.last_dets:
             hov = self.detector.pick_closest(self.last_dets, cursor_x, cursor_y)
             if hov:
                 hx, hy, hw, hh = hov["bbox"]
-                near_x = abs(hx + hw / 2 - cursor_x) < hw * 0.85
-                near_y = abs(hy + hh / 2 - cursor_y) < hh * 0.85
-                if near_x and near_y:
+                if (abs(hx + hw / 2 - cursor_x) < hw * 0.85
+                        and abs(hy + hh / 2 - cursor_y) < hh * 0.85):
                     hover_box   = hov["bbox"]
                     hover_label = hov["label"]
 
@@ -200,6 +218,7 @@ class Session:
             if ok and new_bbox is not None:
                 self.bbox = new_bbox
                 self.conf = float(track_conf)
+                # Only recompute mask every mask_every frames
                 if self.frame_id % self.mask_every == 0 or self.mask is None:
                     self.mask = self.segmenter.get_mask(
                         frame, new_bbox, self.tracker.label)
@@ -212,16 +231,13 @@ class Session:
                     chosen = self.detector.pick_closest(dets, lx + lw // 2, ly + lh // 2)
                     if chosen:
                         self.tracker.reset()
-                        self.tracker.init(
-                            frame, chosen["bbox"], chosen["label"], chosen["conf"])
+                        self.tracker.init(frame, chosen["bbox"], chosen["label"], chosen["conf"])
                         self.label = chosen["label"]
                         self.conf  = chosen["conf"]
                     else:
-                        self.tracking = False
-                        self.bbox = self.mask = None
+                        self.tracking = False; self.bbox = self.mask = None
                 else:
-                    self.tracking = False
-                    self.bbox = self.mask = None
+                    self.tracking = False; self.bbox = self.mask = None
 
         # ── Render ───────────────────────────────────────────────────────
         fps    = self.renderer.tick_fps()
@@ -229,11 +245,8 @@ class Session:
             frame=frame,
             mask=self.mask  if self.tracking else None,
             bbox=self.bbox  if self.tracking else None,
-            label=self.label,
-            conf=self.conf,
-            fps=fps,
-            hover_box=hover_box,
-            hover_label=hover_label,
+            label=self.label, conf=self.conf, fps=fps,
+            hover_box=hover_box, hover_label=hover_label,
             all_dets=self.last_dets if not self.tracking else [],
         )
 
@@ -247,43 +260,34 @@ class Session:
         }
 
 
-# ---------------------------------------------------------------------------
-# HTTP routes
-# ---------------------------------------------------------------------------
+# ── HTTP routes ──────────────────────────────────────────────────────────
 
 @app.get("/", response_class=HTMLResponse)
 async def index():
-    html_path = STATIC_DIR / "index.html"
-    if not html_path.exists():
-        return HTMLResponse(
-            "<h2>index.html not found.</h2>"
-            "<p>Make sure static/index.html exists next to app.py</p>",
-            status_code=404,
-        )
-    return HTMLResponse(html_path.read_text(encoding="utf-8"))
+    p = STATIC_DIR / "index.html"
+    if not p.exists():
+        return HTMLResponse("<h2>static/index.html not found</h2>", status_code=404)
+    return HTMLResponse(p.read_text(encoding="utf-8"))
 
 
 @app.get("/health")
 async def health():
-    """Quick check — visit http://localhost:8000/health to confirm server is up."""
     return JSONResponse({
-        "status": "ok" if _shared_detector is not None else "loading",
-        "models_ready": _shared_detector is not None,
+        "status":        "ok" if _shared_detector else "loading",
+        "models_ready":  _shared_detector is not None,
         "startup_error": _startup_error,
-        "opencv": cv2.__version__,
+        "opencv":        cv2.__version__,
+        "mode":          "CPU",
     })
 
 
-# ---------------------------------------------------------------------------
-# WebSocket
-# ---------------------------------------------------------------------------
+# ── WebSocket ─────────────────────────────────────────────────────────────
 
 @app.websocket("/ws")
 async def ws_endpoint(ws: WebSocket):
     await ws.accept()
-    logger.info("WebSocket client connected from %s", ws.client)
+    logger.info("Client connected from %s", ws.client)
 
-    # If models failed to load, tell the client immediately and close
     if _shared_detector is None:
         err = _startup_error or "Models still loading — refresh in a few seconds"
         await ws.send_text(json.dumps({"error": err}))
@@ -297,61 +301,79 @@ async def ws_endpoint(ws: WebSocket):
         await ws.close(code=1011)
         return
 
-    logger.info("Session ready.")
+    loop     = asyncio.get_event_loop()
+    busy     = False          # frame-drop guard: True while pipeline is running
 
     try:
         while True:
             raw = await ws.receive_text()
 
+            # ── Frame-drop: if we're still processing the last frame,
+            #    parse only lightweight fields (release / low_light) and skip CV
+            if busy:
+                try:
+                    quick = json.loads(raw)
+                    if quick.get("release"):
+                        session.tracker.reset()
+                        session.tracking = False
+                        session.bbox = session.mask = None
+                except Exception:
+                    pass
+                continue   # drop this frame — server will catch up
+
             try:
                 msg = json.loads(raw)
             except json.JSONDecodeError:
-                logger.warning("Bad JSON from client, skipping.")
                 continue
 
+            busy = True
             try:
-                output, meta = session.process(msg)
+                # Run all blocking CV/AI work in the thread pool
+                output, meta = await loop.run_in_executor(
+                    _executor,
+                    session.process_blocking,
+                    msg,
+                )
             except Exception as exc:
-                logger.error("process() error: %s", exc, exc_info=True)
+                logger.error("Pipeline error: %s", exc, exc_info=True)
                 await ws.send_text(json.dumps({"error": str(exc)}))
+                busy = False
                 continue
+            finally:
+                busy = False
 
             if output is None:
                 continue
 
             try:
-                ok, buf = cv2.imencode(".jpg", output, [cv2.IMWRITE_JPEG_QUALITY, 60])
-                if not ok:
-                    continue
-                payload = json.dumps({
-                    "frame": base64.b64encode(buf.tobytes()).decode(),
-                    **meta,
-                })
-                await ws.send_text(payload)
+                ok, buf = cv2.imencode(".jpg", output, [cv2.IMWRITE_JPEG_QUALITY, 75])
+                if ok:
+                    await ws.send_text(json.dumps({
+                        "frame": base64.b64encode(buf.tobytes()).decode(),
+                        **meta,
+                    }))
             except Exception as exc:
                 logger.error("Send error: %s", exc)
                 break
 
     except WebSocketDisconnect:
-        logger.info("Client disconnected normally.")
+        logger.info("Client disconnected.")
     except Exception as exc:
-        logger.error("Unexpected WS error: %s", exc, exc_info=True)
-    finally:
-        logger.info("Session cleaned up.")
+        logger.error("WS error: %s", exc, exc_info=True)
 
 
-# ---------------------------------------------------------------------------
+# ── Entry point ───────────────────────────────────────────────────────────
 if __name__ == "__main__":
-    print("\n" + "═" * 60)
-    print("  FOCUSR — AI Smart AutoFocus Server")
-    print("  Open in browser: http://localhost:8000")
-    print("  Health check:    http://localhost:8000/health")
-    print("═" * 60 + "\n")
+    print("\n" + "═" * 58)
+    print("  FOCUSR — CPU-Optimised Build")
+    print("  Browser:      http://localhost:8000")
+    print("  Health check: http://localhost:8000/health")
+    print("═" * 58 + "\n")
     uvicorn.run(
         "app:app",
         host="0.0.0.0",
         port=8000,
         reload=False,
-        ws_ping_interval=20,   # keepalive pings every 20 s
+        ws_ping_interval=20,
         ws_ping_timeout=30,
     )
