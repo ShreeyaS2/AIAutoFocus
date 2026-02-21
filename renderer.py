@@ -1,8 +1,4 @@
-"""
-renderer.py
------------
-Compositing pipeline.
-"""
+
 
 import logging
 import math
@@ -86,7 +82,6 @@ class Renderer:
         out = self._draw_hud(out, fps, locked=True)
         return out
 
-    # ── FPS ───────────────────────────────────────────────────────────────
 
     def tick_fps(self) -> float:
         now = time.time()
@@ -98,7 +93,6 @@ class Renderer:
         elapsed = self._fps_times[-1] - self._fps_times[0]
         return (len(self._fps_times) - 1) / elapsed if elapsed > 0 else 0.0
 
-    # ── Private helpers ───────────────────────────────────────────────────
 
     def _draw_lock_box(self, frame, bbox, label, conf):
         x, y, w, h = bbox

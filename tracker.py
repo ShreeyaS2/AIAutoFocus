@@ -1,17 +1,4 @@
-"""
-tracker.py
-----------
-Wraps OpenCV CSRT tracker.
 
-Fix 2 applied:
-  - `shrink_bbox()` trims the raw YOLO box by a configurable padding
-    factor before passing it to CSRT.  YOLO bboxes are intentionally
-    loose (they include a few pixels of margin around the body).
-    Shrinking by ~8 % on each side keeps CSRT focused on the body
-    itself rather than the surrounding empty space, which prevents
-    the tracker from drifting onto adjacent people.
-  - MIN_BODY_FRACTION lets you clip the box to the torso region only.
-"""
 
 import logging
 import time
@@ -24,7 +11,7 @@ logger = logging.getLogger(__name__)
 
 def expand_bbox(
     bbox: Tuple[int, int, int, int],
-    factor: float = 0.20,        # 20% padding on each side
+    factor: float = 0.20,        
     frame_w: int = 9999,
     frame_h: int = 9999,
 ) -> Tuple[int, int, int, int]:
@@ -57,7 +44,6 @@ def shrink_bbox(
     nw = max(10, w - 2 * dx)
     nh = max(10, h - 2 * dy)
 
-    # Clamp to frame
     nx = max(0, min(nx, frame_w - 1))
     ny = max(0, min(ny, frame_h - 1))
     nw = min(nw, frame_w - nx)
@@ -67,16 +53,7 @@ def shrink_bbox(
 
 
 class SubjectTracker:
-    """
-    Single-subject CSRT tracker with auto-redetect on loss.
 
-    Parameters
-    ----------
-    shrink_factor : float
-        How much to shrink the YOLO bbox before feeding CSRT.
-        0.08 (8 % per side) is a good default for people.
-        Increase to 0.12–0.15 if you still see drift onto neighbours.
-    """
 
     MIN_IOU   = 0.10
     MAX_LOST  = 5
@@ -90,7 +67,6 @@ class SubjectTracker:
         self._conf          = 0.0
         self._init_time     = 0.0
 
-    # ── Public ────────────────────────────────────────────────────────────
 
     def init(
         self,
@@ -99,13 +75,9 @@ class SubjectTracker:
         label: str   = "",
         conf:  float = 0.0,
     ) -> None:
-        """
-        Initialise tracker on *bbox*.
-        The bbox is shrunk before being handed to CSRT (Fix 2).
-        """
+
         H, W = frame.shape[:2]
 
-        # FIX 2 — shrink raw YOLO bbox before CSRT init
         tight_bbox = shrink_bbox(bbox, factor=self.shrink_factor,
                                  frame_w=W, frame_h=H)
 
@@ -122,10 +94,7 @@ class SubjectTracker:
         )
 
     def update(self, frame: np.ndarray) -> Tuple[bool, Optional[Tuple], float]:
-        """
-        Update tracker. Returns (ok, bbox, conf_proxy).
-        ok=False → caller should trigger re-detection.
-        """
+
         if self._tracker is None or self._last_bbox is None:
             return False, None, 0.0
 
@@ -140,7 +109,6 @@ class SubjectTracker:
                 return False, None, 0.0
             return True, self._last_bbox, max(0.0, 0.4 - 0.1 * self._lost_count)
 
-        # IoU sanity check — catches sudden large drifts
         iou = _iou(self._last_bbox, new_bbox)
         if iou < self.MIN_IOU:
             self._lost_count += 1
@@ -153,7 +121,6 @@ class SubjectTracker:
         conf_proxy  = min(1.0, 0.6 + 0.4 * min(elapsed, 1.0))
         return True, new_bbox, conf_proxy
 
-    # ── Properties ────────────────────────────────────────────────────────
     @property
     def is_active(self) -> bool:
         return self._tracker is not None and self._last_bbox is not None
@@ -177,7 +144,6 @@ class SubjectTracker:
         logger.debug("Tracker reset.")
 
 
-# ── Helpers ───────────────────────────────────────────────────────────────
 
 def _iou(b1: tuple, b2: tuple) -> float:
     x1, y1, w1, h1 = b1

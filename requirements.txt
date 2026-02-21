@@ -1,22 +1,14 @@
-# FOCUSR — Web version requirements
-# Install with: pip install -r requirements.txt
 
-# Web framework
 fastapi>=0.110.0
 uvicorn[standard]>=0.29.0
 python-multipart>=0.0.9
 
-# Computer vision core
 opencv-contrib-python>=4.8.0
 numpy>=1.24
 
-# AI models
-ultralytics>=8.0.0        # YOLOv8 (auto-downloads model weights)
-mediapipe>=0.10.9        # Person segmentation
+ultralytics>=8.0.0        
+mediapipe>=0.10.9        
 
-# PyTorch (CPU build — replace with CUDA build for GPU, see README)
-# torch>=2.0.0            ← installed automatically by ultralytics
-# torchvision>=0.15.0     ← same
 
-# Utilities
+
 scipy>=1.10.0

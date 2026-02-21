@@ -1,17 +1,4 @@
-"""
-segmenter.py  (CPU-optimised)
-------------------------------
-Mask generation ordered fastest → slowest:
 
-  1. Feathered ellipse mask        < 1 ms   — default for non-person on CPU
-  2. MediaPipe ImageSegmenter      ~8 ms    — persons only, on cropped ROI
-     (uses the selfie-multiclass task; SelfieSegmentation was removed in 0.10)
-  3. GrabCut                       200+ ms  — DISABLED in cpu_mode=True
-
-On a CPU-only machine GrabCut is the single biggest FPS killer.
-Replacing it with a feathered ellipse brings throughput from ~3 FPS
-to 15–25 FPS with visually acceptable quality.
-"""
 
 import logging
 from typing import Optional, Tuple
@@ -27,15 +14,11 @@ _mp_selfie_class = None
 try:
     import mediapipe as mp
 
-    # mediapipe >= 0.10 removed mp.solutions.selfie_segmentation.
-    # Prefer the new Tasks API when available; fall back gracefully.
     if hasattr(mp.solutions, "selfie_segmentation"):
-        # Older build (< 0.10) — use legacy API
         _mp_selfie_class = mp.solutions.selfie_segmentation.SelfieSegmentation
         _MP_AVAILABLE = True
         logger.info("MediaPipe: using legacy SelfieSegmentation API")
     else:
-        # Newer build — try the ImageSegmenter tasks API
         try:
             from mediapipe.tasks.python import vision as _mp_vision
             from mediapipe.tasks.python.core import base_options as _mp_base
@@ -51,14 +34,6 @@ except ImportError:
 
 
 class Segmenter:
-    """
-    Parameters
-    ----------
-    edge_blur_ksize : int   Feather kernel size (odd). Smaller = sharper edge,
-                            faster. 15 is a good CPU default.
-    cpu_mode        : bool  True → skip GrabCut, use ellipse for non-persons.
-    mp_model        : int   0 = fast MediaPipe model, 1 = accurate (slower).
-    """
 
     PERSON_CLASSES = {"person"}
 
@@ -75,18 +50,15 @@ class Segmenter:
 
         if _MP_AVAILABLE:
             if _mp_selfie_class is not None:
-                # Legacy API (mediapipe < 0.10)
                 self._mp_seg = _mp_selfie_class(model_selection=mp_model)
                 self._use_legacy_mp = True
                 logger.info("Segmenter ready — MediaPipe legacy (model=%d)", mp_model)
             else:
-                # New Tasks API — no persistent session needed; process per-frame
                 self._use_legacy_mp = False
                 logger.info("Segmenter ready — MediaPipe Tasks API")
         else:
             logger.info("Segmenter ready — ellipse masks only")
 
-    # ── Public ────────────────────────────────────────────────────────────
 
     def get_mask(
         self,
@@ -94,7 +66,6 @@ class Segmenter:
         bbox:  Tuple[int, int, int, int],
         label: str = "",
     ) -> np.ndarray:
-        """Return soft alpha mask (uint8 0-255) same size as frame."""
         h, w = frame.shape[:2]
         x, y, bw, bh = _clamp_bbox(bbox, w, h)
         if bw <= 0 or bh <= 0:
@@ -107,7 +78,7 @@ class Segmenter:
         else:
             mask = self._ellipse_mask(h, w, x, y, bw, bh)
 
-        # Constrain to slightly expanded bbox so mask doesn't bleed
+
         ex, ey, ew, eh = _expand_bbox((x, y, bw, bh), w, h, factor=0.10)
         region = np.zeros((h, w), dtype=np.uint8)
         region[ey:ey+eh, ex:ex+ew] = 255
@@ -115,10 +86,8 @@ class Segmenter:
 
         return self._feather(mask)
 
-    # ── Mask methods ──────────────────────────────────────────────────────
-
+ 
     def _ellipse_mask(self, H, W, x, y, bw, bh) -> np.ndarray:
-        """~0.3 ms. Filled ellipse inscribed in the bounding box."""
         mask = np.zeros((H, W), dtype=np.uint8)
         cv2.ellipse(
             mask,
@@ -129,18 +98,13 @@ class Segmenter:
         return mask
 
     def _mediapipe_mask(self, frame, x, y, bw, bh) -> np.ndarray:
-        """Run MediaPipe on a small padded crop — ~8 ms on CPU.
-        Supports both the legacy SelfieSegmentation API (mediapipe < 0.10)
-        and the new Tasks ImageSegmenter API (mediapipe >= 0.10).
-        Falls back to ellipse mask if segmentation fails.
-        """
+
         H, W = frame.shape[:2]
         pad  = max(bw, bh) // 4
         rx   = max(0, x - pad);  ry = max(0, y - pad)
         rx2  = min(W, x + bw + pad); ry2 = min(H, y + bh + pad)
         crop = frame[ry:ry2, rx:rx2]
 
-        # Downscale crop to max 256 px on the long side
         scale = min(1.0, 256 / max(crop.shape[0], crop.shape[1]))
         if scale < 1.0:
             small = cv2.resize(crop, None, fx=scale, fy=scale,
@@ -150,7 +114,6 @@ class Segmenter:
 
         try:
             if self._use_legacy_mp and self._mp_seg is not None:
-                # Legacy API: mp.solutions.selfie_segmentation
                 result = self._mp_seg.process(
                     cv2.cvtColor(small, cv2.COLOR_BGR2RGB)
                 )
@@ -158,8 +121,7 @@ class Segmenter:
                     return self._ellipse_mask(H, W, x, y, bw, bh)
                 mp_small = (result.segmentation_mask > 0.45).astype(np.uint8) * 255
             else:
-                # New Tasks API — use simple heuristic: run SelfSegmentation
-                # via ImageSegmenter if available, else fall back to ellipse
+
                 return self._ellipse_mask(H, W, x, y, bw, bh)
         except Exception as e:
             logger.debug("MediaPipe segmentation failed: %s", e)
@@ -176,7 +138,6 @@ class Segmenter:
         return mask
 
     def _grabcut_mask(self, frame, x, y, bw, bh) -> np.ndarray:
-        """~200-500 ms on CPU — only used when cpu_mode=False."""
         H, W = frame.shape[:2]
         if x < 1 or y < 1 or x+bw > W-1 or y+bh > H-1 or bw < 10 or bh < 10:
             return self._ellipse_mask(H, W, x, y, bw, bh)
@@ -194,7 +155,6 @@ class Segmenter:
         )
 
     def _feather(self, mask: np.ndarray) -> np.ndarray:
-        """Small dilation + Gaussian blur for smooth compositing edges."""
         k   = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3))
         out = cv2.dilate(mask, k, iterations=1)
         return cv2.GaussianBlur(
@@ -202,7 +162,6 @@ class Segmenter:
         )
 
 
-# ── Helpers ───────────────────────────────────────────────────────────────
 
 def _clamp_bbox(bbox, W, H):
     x, y, w, h = bbox
