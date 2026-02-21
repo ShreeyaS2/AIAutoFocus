@@ -51,6 +51,7 @@ class Detector:
         imgsz:          int            = 320,
         person_only:    bool           = True,
         bbox_shrink:    float          = 0.08,   # FIX 2 — 8% inset per side
+        
     ):
         if device is None:
             device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -61,6 +62,7 @@ class Detector:
         self.iou_threshold  = iou_threshold
         self.person_only    = person_only
         self.bbox_shrink    = bbox_shrink
+        
         # FIX 1 — pass class list directly to YOLO, not just as a post-filter
         self._classes       = [PERSON_CLASS_ID] if person_only else None
 

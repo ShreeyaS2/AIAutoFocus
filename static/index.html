@@ -42,8 +42,6 @@ header { grid-column: 1/-1; display: flex; align-items: center; gap: 20px;
 .logo { font-family: var(--font-head); font-size: 22px; font-weight: 800;
   letter-spacing: -0.02em; color: var(--green); text-shadow: 0 0 24px rgba(0,255,122,0.4); }
 .logo span { color: var(--white); opacity: 0.5; }
-.header-tag { font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase;
-  color: var(--muted); border-left: 1px solid var(--border2); padding-left: 16px; }
 .conn-badge { margin-left: auto; display: flex; align-items: center; gap: 8px;
   font-size: 11px; color: var(--muted); }
 .conn-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--muted);
@@ -65,11 +63,11 @@ header { grid-column: 1/-1; display: flex; align-items: center; gap: 20px;
 .drop-icon { width: 72px; height: 72px; border: 2px solid var(--border2); border-radius: 50%;
   display: flex; align-items: center; justify-content: center; font-size: 28px;
   color: var(--muted); transition: border-color .2s, color .2s; }
-.drop-zone:hover .drop-icon, .drop-zone.dragover .drop-icon
-  { border-color: var(--green); color: var(--green); }
+.drop-zone:hover .drop-icon { border-color: var(--green); color: var(--green); }
 .drop-label { text-align: center; line-height: 1.8; color: var(--muted); }
 .drop-label strong { color: var(--white); display: block; font-size: 15px; }
 .btn-group { display: flex; gap: 10px; margin-top: 4px; }
+
 .btn { padding: 9px 20px; border-radius: 4px; border: 1px solid var(--border2);
   background: transparent; color: var(--white); font-family: var(--font-mono);
   font-size: 12px; cursor: pointer; transition: all .15s; letter-spacing: .04em; }
@@ -80,10 +78,36 @@ header { grid-column: 1/-1; display: flex; align-items: center; gap: 20px;
 .btn.danger:hover { background: var(--red); color: #000; }
 .btn:disabled { opacity: .35; cursor: not-allowed; }
 
-#output-canvas { max-width: 100%; max-height: 100%; display: none;
-  image-rendering: auto; }
+/* ── Canvas — fills the video area, object-fit keeps aspect ratio ── */
+#output-canvas {
+  display: none;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  image-rendering: auto;
+}
 #output-canvas.visible { display: block; }
 #src-video { display: none; }
+
+/* ── Fullscreen ── */
+.video-area:-webkit-full-screen { width: 100vw; height: 100vh; }
+.video-area:-moz-full-screen    { width: 100vw; height: 100vh; }
+.video-area:fullscreen          { width: 100vw; height: 100vh; }
+
+/* Fullscreen btn floats over top-right corner of video */
+#btn-fullscreen {
+  position: absolute; top: 10px; right: 10px; z-index: 30;
+  padding: 6px 10px; font-size: 14px; opacity: 0.6;
+  display: none;
+  background: rgba(10,11,13,0.7);
+  border: 1px solid var(--border2);
+  border-radius: 4px;
+  color: var(--white);
+  cursor: pointer;
+  transition: opacity .2s;
+}
+#btn-fullscreen:hover { opacity: 1; border-color: var(--green); color: var(--green); }
+#output-canvas.visible ~ #btn-fullscreen { display: block; }
 
 .crosshair { position: absolute; pointer-events: none; width: 24px; height: 24px;
   transform: translate(-50%,-50%); display: none; z-index: 20; }
@@ -92,21 +116,21 @@ header { grid-column: 1/-1; display: flex; align-items: center; gap: 20px;
 .crosshair::after  { width:100%; height:1px; top:50%; }
 .crosshair.visible { display: block; }
 
-/* ── Toast notifications ── */
+/* ── Toast ── */
 .toast-stack { position: absolute; bottom: 16px; left: 50%; transform: translateX(-50%);
   display: flex; flex-direction: column; gap: 8px; z-index: 100; pointer-events: none;
   min-width: 280px; }
 .toast { padding: 10px 16px; border-radius: 6px; font-size: 12px; line-height: 1.5;
   border: 1px solid; animation: toast-in .25s ease; pointer-events: auto; }
-.toast.error  { background: rgba(255,61,90,.12); border-color: var(--red);   color: var(--red); }
-.toast.warn   { background: rgba(255,179,0,.10); border-color: var(--amber); color: var(--amber); }
-.toast.info   { background: rgba(0,255,122,.08); border-color: var(--green); color: var(--green); }
+.toast.error { background: rgba(255,61,90,.12);  border-color: var(--red);   color: var(--red); }
+.toast.warn  { background: rgba(255,179,0,.10);  border-color: var(--amber); color: var(--amber); }
+.toast.info  { background: rgba(0,255,122,.08);  border-color: var(--green); color: var(--green); }
 @keyframes toast-in { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:none} }
 
 /* ── Sidebar ── */
 .sidebar { grid-column: 2; display: flex; flex-direction: column;
   border-left: 1px solid var(--border); background: var(--surface); overflow-y: auto; }
-.section { padding: 20px; }
+.section { padding: 20px; border-bottom: 1px solid var(--border); }
 .section:last-child { border-bottom: none; }
 .section-title { font-size: 10px; letter-spacing: .16em; text-transform: uppercase;
   color: var(--muted); margin-bottom: 14px; }
@@ -115,9 +139,6 @@ header { grid-column: 1/-1; display: flex; align-items: center; gap: 20px;
 .stat-row:last-child { border-bottom: none; }
 .stat-key { color: var(--muted); }
 .stat-val { font-weight: 500; color: var(--white); }
-.stat-val.green { color: var(--green); }
-.stat-val.amber { color: var(--amber); }
-.stat-val.red   { color: var(--red); }
 .fps-bar-wrap { height: 4px; background: var(--border); border-radius: 2px;
   margin-top: 4px; overflow: hidden; }
 .fps-bar { height: 100%; background: var(--green); width: 0%; transition: width .3s; border-radius: 2px; }
@@ -136,17 +157,6 @@ input[type=range] { -webkit-appearance: none; width: 100%; height: 4px;
   background: var(--border2); border-radius: 2px; outline: none; cursor: pointer; }
 input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 14px; height: 14px;
   border-radius: 50%; background: var(--green); cursor: pointer; }
-.log-box { background: #070809; border: 1px solid var(--border); border-radius: 4px;
-  padding: 10px; height: 140px; overflow-y: auto; font-size: 11px; line-height: 1.7;
-  color: var(--muted); }
-.log-box::-webkit-scrollbar { width: 4px; }
-.log-box::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
-.log-entry { display: flex; gap: 6px; }
-.log-time  { color: var(--border2); min-width: 60px; }
-.log-msg   { color: var(--muted); flex: 1; }
-.log-msg.green { color: var(--green); }
-.log-msg.amber { color: var(--amber); }
-.log-msg.red   { color: var(--red); }
 
 .track-ring { position: absolute; border: 2px solid var(--green); border-radius: 50%;
   pointer-events: none; opacity: 0; animation: ring-expand .6s ease-out; z-index: 15; }
@@ -191,7 +201,7 @@ footer { grid-column: 1/-1; display: flex; align-items: center; gap: 16px;
       <div class="drop-icon">⌖</div>
       <div class="drop-label">
         <strong>Choose your input source</strong>
-        Drag & drop a video file, or connect your webcam
+        Drag &amp; drop a video file, or connect your webcam
       </div>
       <div class="btn-group">
         <button class="btn primary" id="btn-webcam">◉ Webcam</button>
@@ -202,6 +212,9 @@ footer { grid-column: 1/-1; display: flex; align-items: center; gap: 16px;
     <canvas id="output-canvas"></canvas>
     <video  id="src-video" playsinline muted></video>
     <div class="crosshair" id="crosshair"></div>
+
+    <!-- Fullscreen button — appears once video is live -->
+    <button id="btn-fullscreen" title="Fullscreen (F)">⛶</button>
 
     <!-- Toast stack -->
     <div class="toast-stack" id="toast-stack"></div>
@@ -220,17 +233,16 @@ footer { grid-column: 1/-1; display: flex; align-items: center; gap: 16px;
       <div class="section-title">Status</div>
       <div class="stat-row">
         <span class="stat-key">FPS</span>
-        <span class="stat-val green" id="stat-fps">—</span>
+        <span class="stat-val" style="color:var(--green)" id="stat-fps">—</span>
       </div>
       <div class="fps-bar-wrap"><div class="fps-bar" id="fps-bar"></div></div>
       <div style="height:10px"></div>
       <div class="stat-row"><span class="stat-key">State</span><span class="stat-val" id="stat-state">idle</span></div>
-      <div class="stat-row"><span class="stat-key">Subject</span><span class="stat-val green" id="stat-label">—</span></div>
+      <div class="stat-row"><span class="stat-key">Subject</span><span class="stat-val" style="color:var(--green)" id="stat-label">—</span></div>
       <div class="stat-row"><span class="stat-key">Confidence</span><span class="stat-val" id="stat-conf">—</span></div>
-      <div class="stat-row"><span class="stat-key">Objects in scene</span><span class="stat-val" id="stat-dets">0</span></div>
-      <div class="stat-row"><span class="stat-key" style="display:none">Frame</span><span class="stat-val" style="display:none"id="stat-frame">0</span></div>
+      <div class="stat-row"><span class="stat-key">Objects</span><span class="stat-val" id="stat-dets">0</span></div>
     </div>
-       
+
     <div class="section">
       <div class="section-title">Actions</div>
       <div style="display:flex;flex-direction:column;gap:8px;">
@@ -248,58 +260,22 @@ footer { grid-column: 1/-1; display: flex; align-items: center; gap: 16px;
           <div class="toggle-track"></div><div class="toggle-thumb"></div>
         </label>
       </div>
-      <div class="control-row">
-        <span class="control-label" style="display:none">Show track box <span style="color:var(--border2);font-size:10px;">(debug)</span></span>
-        <label class="toggle" style="display:none">
-          <input type="checkbox" id="toggle-showbox"/>
-          <div class="toggle-track"></div><div class="toggle-thumb"></div>
-        </label>
-      </div>
-      <div class="control-row">
-        <span class="control-label" style="display:none">Show tracking box</span>
-        <label class="toggle" style="display:none">
-          <input type="checkbox" id="toggle-showbox"/>
-          <div class="toggle-track"></div><div class="toggle-thumb"></div>
-        </label>
-      </div>
       <div class="control-row" style="flex-direction:column;align-items:flex-start;gap:8px;padding-top:10px;">
         <div class="range-wrap">
-          <div class="range-header"><span class="control-label" style="display:none">Bokeh blur</span><span class="stat-val" id="blur-val" style="display:none">31</span></div>
-          <input type="range" id="slider-blur" min="11" max="101" step="2" value="0" style="display:none"/>
+          <div class="range-header">
+            <span class="control-label">Blur strength</span>
+            <span class="stat-val" id="blur-val">31</span>
+          </div>
+          <input type="range" id="slider-blur" min="11" max="101" step="2" value="31"/>
         </div>
       </div>
-      <div class="control-row" style="flex-direction:column;align-items:flex-start;gap:8px;padding-top:10px;">
-        <div class="range-wrap">
-          <div class="range-header"><span class="control-label" style="display:none">Detect interval</span><span class="stat-val" id="det-val" style="display:none">30</span></div>
-          <input type="range" id="slider-detect" min="5" max="90" step="5" value="30" style="display:none"/>
-        </div>
-      </div>
-    </div>
-
-    <div class="section">
-      <div class="section-title" style="display:none">Performance Preset</div>
-      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:4px;display:none">
-        <button class="btn" id="preset-fast"    title="Max FPS — least blur quality">⚡ Fast</button>
-        <button class="btn" id="preset-balance" title="Good balance for CPU">⚖ Balanced</button>
-        <button class="btn" id="preset-quality" title="Better quality, lower FPS">✦ Quality</button>
-      </div>
-      <div style="font-size:10px;color:var(--muted);margin-top:2px;display:none" id="preset-hint">
-        Balanced selected — ~15–20 FPS on CPU
-      </div>
-    </div>
-
- 
-
-    <div class="section" style="flex:1;">
-      <div class="section-title" style="display:none">Console</div>
-      <div class="log-box" style="display:none"id="log-box"></div>
     </div>
   </div>
 
   <!-- Footer -->
   <footer>
     <span class="footer-hint">
-      <kbd>hover</kbd> preview · <kbd>click</kbd> lock · <kbd>Space</kbd> pause · <kbd>Esc</kbd> release
+      <kbd>click</kbd> lock · <kbd>Space</kbd> pause · <kbd>Esc</kbd> release · <kbd>F</kbd> fullscreen
     </span>
     <div class="footer-actions">
       <button class="btn" id="btn-pause" disabled>⏸ Pause</button>
@@ -308,80 +284,72 @@ footer { grid-column: 1/-1; display: flex; align-items: center; gap: 16px;
 </div>
 
 <script>
-/* ════════════════════════════════════════════════════════════
-   FOCUSR  —  frontend controller (v2.1)
-   Fixed: smarter WS URL, exponential backoff reconnect,
-          error toasts, health check before connecting,
-          proper frame throttle
-   ════════════════════════════════════════════════════════════ */
-
-// ── WebSocket URL — always connect back to the same host/port ────────────
-// Works whether you open via localhost, 127.0.0.1, or LAN IP
 const WS_PROTO = location.protocol === 'https:' ? 'wss:' : 'ws:';
 const WS_URL   = `${WS_PROTO}//${location.host}/ws`;
 
-// ── DOM ─────────────────────────────────────────────────────────────────
+// ── Safe $ helper ────────────────────────────────────────────────────────
 const $ = id => document.getElementById(id) || {
   textContent: '', style: {}, classList: { add(){}, remove(){}, contains(){ return false; } },
   addEventListener(){}, click(){}, disabled: false, value: '0', checked: false,
 };
 
+// ── Real element refs (for listeners) ────────────────────────────────────
+const videoArea    = document.getElementById('video-area');
+const outCanvas    = document.getElementById('output-canvas');
+const srcVideo     = document.getElementById('src-video');
+const crosshair    = document.getElementById('crosshair');
+const dropZone     = document.getElementById('drop-zone');
+const fileInput    = document.getElementById('file-input');
+const toastStack   = document.getElementById('toast-stack');
+const retryOverlay = document.getElementById('retry-overlay');
+const retryMsg     = document.getElementById('retry-msg');
+const retryFill    = document.getElementById('retry-fill');
+const connDot      = document.getElementById('conn-dot');
+const connLabel    = document.getElementById('conn-label');
+const logBox       = document.getElementById('log-box');   // may be null — that's fine
 const blurSlider   = document.getElementById('slider-blur');
-const detectSlider = document.getElementById('slider-detect');
-
-if (blurSlider)   blurSlider.addEventListener('input',   () => $('blur-val').textContent = blurSlider.value);
-if (detectSlider) detectSlider.addEventListener('input', () => $('det-val').textContent  = detectSlider.value);
-
-
-const dropZone     = $('drop-zone');
-const videoArea    = $('video-area');
-const outCanvas    = $('output-canvas');
-const srcVideo     = $('src-video');
-const crosshair    = $('crosshair');
-const fileInput    = $('file-input');
-const connDot      = $('conn-dot');
-const connLabel    = $('conn-label');
-const logBox       = $('log-box');
-const toastStack   = $('toast-stack');
-const retryOverlay = $('retry-overlay');
-const retryMsg     = $('retry-msg');
-const retryFill    = $('retry-fill');
-const btnRetry     = $('btn-retry');
+const btnRelease   = document.getElementById('btn-release');
+const btnPause     = document.getElementById('btn-pause');
+const btnRetry     = document.getElementById('btn-retry');
+const btnWebcam    = document.getElementById('btn-webcam');
+const btnFile      = document.getElementById('btn-file');
+const btnSwitchSrc = document.getElementById('btn-switch-src');
+const btnFullscreen= document.getElementById('btn-fullscreen');
 const ctx          = outCanvas.getContext('2d');
 
 // ── App state ────────────────────────────────────────────────────────────
-let ws            = null;
-let wsReady       = false;
-let retryCount    = 0;
-let retryTimer    = null;
-let stream        = null;
-let paused        = false;
-let clicking      = false;
-let cursorX       = null;
-let cursorY       = null;
-let canvasRect    = null;
-let sourceActive  = false;   // true once webcam/file is loaded
-let sending       = false;   // backpressure guard
-let frameLoopId   = null;
+let ws           = null;
+let wsReady      = false;
+let retryCount   = 0;
+let retryTimer   = null;
+let stream       = null;
+let paused       = false;
+let clicking     = false;
+let cursorX      = null;
+let cursorY      = null;
+let canvasRect   = null;
+let sourceActive = false;
+let sending      = false;
+let frameLoopId  = null;
 
-// Offscreen capture canvas
 const capCanvas = document.createElement('canvas');
 const capCtx    = capCanvas.getContext('2d');
 
 // ── Logging ──────────────────────────────────────────────────────────────
 function log(msg, cls = '') {
+  if (!logBox) return;
   const t  = new Date().toLocaleTimeString('en', { hour12: false });
   const el = document.createElement('div');
   el.className = 'log-entry';
-  el.innerHTML = `<span class="log-time">${t}</span>`
-               + `<span class="log-msg ${cls}">${msg}</span>`;
+  el.innerHTML = `<span class="log-time">${t}</span><span class="log-msg ${cls}">${msg}</span>`;
   logBox.appendChild(el);
   logBox.scrollTop = logBox.scrollHeight;
   while (logBox.children.length > 150) logBox.removeChild(logBox.firstChild);
 }
 
-// ── Toast notifications ───────────────────────────────────────────────────
+// ── Toast ─────────────────────────────────────────────────────────────────
 function toast(msg, type = 'info', duration = 4000) {
+  if (!toastStack) return;
   const el = document.createElement('div');
   el.className = `toast ${type}`;
   el.textContent = msg;
@@ -390,46 +358,34 @@ function toast(msg, type = 'info', duration = 4000) {
   log(msg, type === 'error' ? 'red' : type === 'warn' ? 'amber' : 'green');
 }
 
-// ── Health check — verify server is reachable before WS ──────────────────
+// ── Health check ─────────────────────────────────────────────────────────
 async function checkHealth() {
   try {
     const r = await fetch('/health', { signal: AbortSignal.timeout(3000) });
     if (!r.ok) return false;
     const d = await r.json();
     if (!d.models_ready) {
-      toast(`Server up but models not ready yet: ${d.startup_error || 'still loading…'}`, 'warn');
+      toast(`Models not ready: ${d.startup_error || 'still loading…'}`, 'warn');
       return false;
     }
     return true;
-  } catch {
-    return false;
-  }
+  } catch { return false; }
 }
 
-// ── WebSocket connect ─────────────────────────────────────────────────────
+// ── WebSocket ─────────────────────────────────────────────────────────────
 async function connectWS() {
-  if (ws && ws.readyState <= 1) return;   // already connecting/open
-
-  // First do a quick HTTP health check
-  log('Checking server health…', 'amber');
-  const healthy = await checkHealth();
-  if (!healthy) {
-    log('Server not ready — will retry…', 'red');
+  if (ws && ws.readyState <= 1) return;
+  log('Checking server…', 'amber');
+  if (!await checkHealth()) {
     scheduleRetry('Server not reachable. Is it running?\npython app.py');
     return;
   }
-
-  log(`Connecting WebSocket → ${WS_URL}`, 'amber');
   setConnState('connecting');
-
   ws = new WebSocket(WS_URL);
 
   ws.addEventListener('open', () => {
-    wsReady    = true;
-    retryCount = 0;
-    hideRetry();
-    setConnState('live');
-    log('WebSocket connected ✓', 'green');
+    wsReady = true; retryCount = 0;
+    hideRetry(); setConnState('live');
     toast('Connected to FOCUSR server', 'info', 2500);
     if (sourceActive) startFrameLoop();
   });
@@ -438,172 +394,135 @@ async function connectWS() {
     sending = false;
     let data;
     try { data = JSON.parse(ev.data); } catch { return; }
+    if (data.error) { toast(`Server: ${data.error}`, 'error'); return; }
 
-    // Server-side error
-    if (data.error) {
-      toast(`Server: ${data.error}`, 'error');
-      log(`Server error: ${data.error}`, 'red');
-      return;
+if (data.frame) {
+      // Stay unblurred until user clicks a new person
+      if (isReleased) {
+        capCtx.drawImage(srcVideo, 0, 0, capCanvas.width || 640, capCanvas.height || 480);
+        ctx.drawImage(capCanvas, 0, 0, outCanvas.width, outCanvas.height);
+      } else {
+        const img = new Image();
+        img.onload = () => {
+          outCanvas.width  = img.naturalWidth;
+          outCanvas.height = img.naturalHeight;
+          ctx.drawImage(img, 0, 0);
+          outCanvas.classList.add('visible');
+          if (dropZone) dropZone.classList.add('hidden');
+          canvasRect = outCanvas.getBoundingClientRect();
+        };
+        img.src = 'data:image/jpeg;base64,' + data.frame;
+      }
     }
 
-    // Render frame
-    if (data.frame) {
-      const img = new Image();
-      img.onload = () => {
-        outCanvas.width  = img.naturalWidth;
-        outCanvas.height = img.naturalHeight;
-        ctx.drawImage(img, 0, 0);
-        outCanvas.classList.add('visible');
-        dropZone.classList.add('hidden');
-        canvasRect = outCanvas.getBoundingClientRect();
-      };
-      img.src = 'data:image/jpeg;base64,' + data.frame;
-    }
-
-    // Update HUD
     const fps = data.fps || 0;
-    $('stat-fps').textContent   = fps.toFixed(1);
-    $('fps-bar').style.width    = Math.min(100, fps / 35 * 100).toFixed(1) + '%';
-    $('stat-frame').textContent = data.frame_id  || 0;
-    $('stat-dets').textContent  = data.det_count ?? 0;
+    $('stat-fps').textContent  = fps.toFixed(1);
+    $('fps-bar').style.width   = Math.min(100, fps / 35 * 100).toFixed(1) + '%';
+    $('stat-dets').textContent = data.det_count ?? 0;
 
     if (data.tracking) {
       $('stat-state').textContent = 'LOCKED';
-      $('stat-state').className   = 'stat-val green';
+      $('stat-state').style.color = 'var(--green)';
       $('stat-label').textContent = data.label || '—';
-      $('stat-conf').textContent  = data.conf
-        ? (data.conf * 100).toFixed(0) + '%' : '—';
-      $('btn-release').disabled = false;
+      $('stat-conf').textContent  = data.conf ? (data.conf * 100).toFixed(0) + '%' : '—';
+      if (btnRelease) btnRelease.disabled = false;
     } else {
       $('stat-state').textContent = 'scanning';
-      $('stat-state').className   = 'stat-val amber';
+      $('stat-state').style.color = 'var(--amber)';
       $('stat-label').textContent = '—';
       $('stat-conf').textContent  = '—';
-      $('btn-release').disabled   = true;
+      if (btnRelease) btnRelease.disabled = true;
     }
   });
 
   ws.addEventListener('close', ev => {
-    wsReady = false;
-    sending = false;
-    setConnState('error');
-    log(`WebSocket closed (code=${ev.code})`, 'red');
-    if (ev.code !== 1000) {   // not a clean close
-      scheduleRetry('Connection lost. Reconnecting…');
-    }
+    wsReady = false; sending = false; setConnState('error');
+    if (ev.code !== 1000) scheduleRetry('Connection lost. Reconnecting…');
   });
 
   ws.addEventListener('error', () => {
-    wsReady = false;
-    sending = false;
-    setConnState('error');
-    log('WebSocket error', 'red');
+    wsReady = false; sending = false; setConnState('error');
   });
 }
 
-// ── Retry with exponential backoff ────────────────────────────────────────
+// ── Retry ─────────────────────────────────────────────────────────────────
 function scheduleRetry(msg) {
   retryCount++;
-  const delay = Math.min(2000 * retryCount, 15000);   // cap at 15 s
-  retryMsg.textContent = `${msg}\nRetrying in ${delay / 1000}s… (attempt ${retryCount})`;
-  retryOverlay.classList.add('visible');
-  retryFill.style.transition = 'none';
-  retryFill.style.width = '0%';
-  requestAnimationFrame(() => {
-    retryFill.style.transition = `width ${delay / 1000}s linear`;
-    retryFill.style.width = '100%';
-  });
+  const delay = Math.min(2000 * retryCount, 15000);
+  if (retryMsg) retryMsg.textContent = `${msg}\nRetrying in ${delay/1000}s… (attempt ${retryCount})`;
+  if (retryOverlay) retryOverlay.classList.add('visible');
+  if (retryFill) {
+    retryFill.style.transition = 'none';
+    retryFill.style.width = '0%';
+    requestAnimationFrame(() => {
+      retryFill.style.transition = `width ${delay/1000}s linear`;
+      retryFill.style.width = '100%';
+    });
+  }
   clearTimeout(retryTimer);
   retryTimer = setTimeout(connectWS, delay);
 }
 
 function hideRetry() {
-  retryOverlay.classList.remove('visible');
+  if (retryOverlay) retryOverlay.classList.remove('visible');
   clearTimeout(retryTimer);
 }
 
-btnRetry.addEventListener('click', () => {
-  clearTimeout(retryTimer);
-  retryCount = 0;
-  connectWS();
-});
-
-// ── Connection dot state ──────────────────────────────────────────────────
 function setConnState(state) {
-  const states = { live: ['live', 'connected'], error: ['error', 'disconnected'],
-                   connecting: ['warn', 'connecting…'] };
-  const [cls, label] = states[state] || ['', 'unknown'];
-  connDot.className   = `conn-dot ${cls}`;
-  connLabel.textContent = label;
+  const map = { live: ['live','connected'], error: ['error','disconnected'], connecting: ['warn','connecting…'] };
+  const [cls, label] = map[state] || ['','unknown'];
+  if (connDot)   connDot.className     = `conn-dot ${cls}`;
+  if (connLabel) connLabel.textContent = label;
 }
 
-// ── Frame capture & send ──────────────────────────────────────────────────
+// ── Frame send ────────────────────────────────────────────────────────────
 function sendFrame() {
-  if (!wsReady || !ws || ws.readyState !== 1) return;
-  if (paused || sending) return;
-
-  const vw = srcVideo.videoWidth;
-  const vh = srcVideo.videoHeight;
+  if (!wsReady || !ws || ws.readyState !== 1 || paused || sending) return;
+  const vw = srcVideo.videoWidth, vh = srcVideo.videoHeight;
   if (!vw || !vh || srcVideo.readyState < 2) return;
 
-  // Scale to max 640 wide
   const scale = Math.min(1, 640 / vw);
-  const dw = Math.round(vw * scale);
-  const dh = Math.round(vh * scale);
-  capCanvas.width  = dw;
-  capCanvas.height = dh;
+  const dw = Math.round(vw * scale), dh = Math.round(vh * scale);
+  capCanvas.width = dw; capCanvas.height = dh;
   capCtx.drawImage(srcVideo, 0, 0, dw, dh);
 
-  // Map cursor to frame coords
   let cx = null, cy = null;
   if (canvasRect && cursorX !== null) {
-    const sx = dw / canvasRect.width;
-    const sy = dh / canvasRect.height;
-    cx = Math.round((cursorX - canvasRect.left)  * sx);
-    cy = Math.round((cursorY - canvasRect.top)   * sy);
+    cx = Math.round((cursorX - canvasRect.left) * dw / canvasRect.width);
+    cy = Math.round((cursorY - canvasRect.top)  * dh / canvasRect.height);
     cx = Math.max(0, Math.min(dw - 1, cx));
     cy = Math.max(0, Math.min(dh - 1, cy));
   }
 
-  const frameB64 = capCanvas.toDataURL('image/jpeg', 0.82).split(',')[1];
-  const payload  = JSON.stringify({
-    frame:        frameB64,
+  const payload = JSON.stringify({
+    frame:        capCanvas.toDataURL('image/jpeg', 0.82).split(',')[1],
     cursor_x:     cx,
     cursor_y:     cy,
     clicked:      clicking,
     low_light:    $('toggle-lowlight').checked,
-    show_box:     $('toggle-showbox').checked,
-    bokeh_k:      parseInt($('slider-blur').value),
-    detect_every: parseInt($('slider-detect').value),
+    show_box:     false,
+    bokeh_k:      blurSlider ? parseInt(blurSlider.value) : 31,
+    detect_every: 20,
   });
 
-  if (clicking) {
-    log(`Click at (${cx}, ${cy})`, 'amber');
-    spawnRing();
-    clicking = false;
-  }
-
+  if (clicking) { spawnRing(); clicking = false; }
   sending = true;
-  try { ws.send(payload); }
-  catch (e) { sending = false; log('Send failed: ' + e.message, 'red'); }
+  try { ws.send(payload); } catch(e) { sending = false; }
 }
 
 function startFrameLoop() {
   if (frameLoopId) cancelAnimationFrame(frameLoopId);
   const tick = () => { sendFrame(); frameLoopId = requestAnimationFrame(tick); };
   frameLoopId = requestAnimationFrame(tick);
-  $('btn-pause').disabled = false;
+  if (btnPause) btnPause.disabled = false;
 }
 
-// ── Ring animation on click ───────────────────────────────────────────────
+// ── Ring on click ─────────────────────────────────────────────────────────
 function spawnRing() {
-  if (cursorX == null) return;
+  if (cursorX == null || !videoArea) return;
   const r = document.createElement('div');
-  r.className  = 'track-ring';
-  r.style.width  = '48px';
-  r.style.height = '48px';
-  r.style.left   = (cursorX - 24) + 'px';
-  r.style.top    = (cursorY - 24) + 'px';
+  r.className = 'track-ring';
+  r.style.cssText = `width:48px;height:48px;left:${cursorX-24}px;top:${cursorY-24}px`;
   videoArea.appendChild(r);
   setTimeout(() => r.remove(), 700);
 }
@@ -612,163 +531,132 @@ function spawnRing() {
 async function startWebcam() {
   try {
     stream = await navigator.mediaDevices.getUserMedia({
-      video: { width: { ideal: 1280 }, height: { ideal: 720 }, frameRate: { ideal: 30 } },
-      audio: false,
+      video: { width:{ideal:1280}, height:{ideal:720}, frameRate:{ideal:30} }, audio: false,
     });
     srcVideo.srcObject = stream;
     await srcVideo.play();
     sourceActive = true;
-    log('Webcam started ✓', 'green');
     toast('Webcam ready', 'info', 2000);
     connectWS();
-  } catch (err) {
-    toast(`Webcam error: ${err.message}`, 'error');
-    log(`Webcam error: ${err.message}`, 'red');
-  }
+  } catch(err) { toast(`Webcam error: ${err.message}`, 'error'); }
 }
 
 // ── File video ────────────────────────────────────────────────────────────
 function startFile(file) {
   if (stream) { stream.getTracks().forEach(t => t.stop()); stream = null; }
   srcVideo.srcObject = null;
-  srcVideo.src  = URL.createObjectURL(file);
+  srcVideo.src = URL.createObjectURL(file);
   srcVideo.loop = true;
   srcVideo.play();
   sourceActive = true;
-  log(`Loaded: ${file.name}`, 'green');
   toast(`Video: ${file.name}`, 'info', 2500);
   connectWS();
 }
 
-// ── Canvas mouse events ───────────────────────────────────────────────────
+// ── Canvas mouse ──────────────────────────────────────────────────────────
 outCanvas.addEventListener('mousemove', e => {
   cursorX = e.clientX; cursorY = e.clientY;
-  crosshair.style.left = cursorX + 'px';
-  crosshair.style.top  = cursorY + 'px';
-  crosshair.classList.add('visible');
+  if (crosshair) { crosshair.style.left = cursorX+'px'; crosshair.style.top = cursorY+'px'; crosshair.classList.add('visible'); }
 });
 outCanvas.addEventListener('mouseleave', () => {
   cursorX = cursorY = null;
-  crosshair.classList.remove('visible');
+  if (crosshair) crosshair.classList.remove('visible');
 });
 outCanvas.addEventListener('click', e => {
-  cursorX  = e.clientX; cursorY = e.clientY;
+  cursorX = e.clientX; cursorY = e.clientY;
   clicking = true;
+  isReleased = false;   // ← add this — new click re-enables blur
   canvasRect = outCanvas.getBoundingClientRect();
 });
 
 // ── Drag & drop ───────────────────────────────────────────────────────────
-videoArea.addEventListener('dragover',  e => { e.preventDefault(); videoArea.classList.add('drag-over'); });
-videoArea.addEventListener('dragleave', ()  => videoArea.classList.remove('drag-over'));
-videoArea.addEventListener('drop', e => {
-  e.preventDefault(); videoArea.classList.remove('drag-over');
-  const file = e.dataTransfer.files[0];
-  if (file && file.type.startsWith('video/')) startFile(file);
-  else toast('Please drop a video file', 'warn');
+if (videoArea) {
+  videoArea.addEventListener('dragover',  e => { e.preventDefault(); videoArea.classList.add('drag-over'); });
+  videoArea.addEventListener('dragleave', ()  => videoArea.classList.remove('drag-over'));
+  videoArea.addEventListener('drop', e => {
+    e.preventDefault(); videoArea.classList.remove('drag-over');
+    const file = e.dataTransfer.files[0];
+    if (file && file.type.startsWith('video/')) startFile(file);
+    else toast('Please drop a video file', 'warn');
+  });
+}
+
+// ── Fullscreen ────────────────────────────────────────────────────────────
+function toggleFullscreen() {
+  if (!document.fullscreenElement) {
+    videoArea.requestFullscreen().catch(() => {});
+  } else {
+    document.exitFullscreen();
+  }
+}
+
+document.addEventListener('fullscreenchange', () => {
+  if (btnFullscreen) btnFullscreen.textContent = document.fullscreenElement ? '✕' : '⛶';
+  // Recalculate canvas rect after resize
+  setTimeout(() => { if (outCanvas) canvasRect = outCanvas.getBoundingClientRect(); }, 200);
 });
 
-// ── Buttons ───────────────────────────────────────────────────────────────
-$('btn-webcam').addEventListener('click', startWebcam);
-$('btn-file').addEventListener('click',   () => fileInput.click());
-fileInput.addEventListener('change', e => { if (e.target.files[0]) startFile(e.target.files[0]); });
+if (btnFullscreen) btnFullscreen.addEventListener('click', toggleFullscreen);
 
-const btnRelease = document.getElementById('btn-release');
+// ── Button listeners ──────────────────────────────────────────────────────
+if (btnWebcam)    btnWebcam.addEventListener('click', startWebcam);
+if (btnFile)      btnFile.addEventListener('click', () => fileInput && fileInput.click());
+if (fileInput)    fileInput.addEventListener('change', e => { if (e.target.files[0]) startFile(e.target.files[0]); });
+
+let releasedAt = 0;
+let isReleased = false;
 if (btnRelease) btnRelease.addEventListener('click', () => {
   if (ws && ws.readyState === 1) {
     ws.send(JSON.stringify({ release: true }));
-    log('Lock released', 'amber');
-    btnRelease.disabled = true;
   }
+  releasedAt = Date.now();
+  isReleased = true;   // ← add this
+  btnRelease.disabled = true;
+  $('stat-state').textContent = 'scanning';
+  $('stat-state').style.color = 'var(--amber)';
+  $('stat-label').textContent = '—';
+  $('stat-conf').textContent  = '—';
+  toast('Lock released', 'info', 2000);
 });
 
-$('btn-switch-src').addEventListener('click', () => {
-  if (stream)  { stream.getTracks().forEach(t => t.stop()); stream = null; }
+if (btnSwitchSrc) btnSwitchSrc.addEventListener('click', () => {
+  if (stream) { stream.getTracks().forEach(t => t.stop()); stream = null; }
   srcVideo.pause(); srcVideo.src = ''; srcVideo.srcObject = null;
   sourceActive = false;
   outCanvas.classList.remove('visible');
-  dropZone.classList.remove('hidden');
+  if (dropZone) dropZone.classList.remove('hidden');
   canvasRect = null;
   if (ws) { ws.close(1000); ws = null; }
   wsReady = false;
   setConnState('error');
-  $('btn-pause').disabled = true;
-  $('btn-release').disabled = true;
-  log('Source cleared', 'amber');
+  if (btnPause)   btnPause.disabled   = true;
+  if (btnRelease) btnRelease.disabled = true;
 });
 
-$('btn-pause').addEventListener('click', () => {
+if (btnPause) btnPause.addEventListener('click', () => {
   paused = !paused;
-  $('btn-pause').textContent = paused ? '▶ Resume' : '⏸ Pause';
+  btnPause.textContent = paused ? '▶ Resume' : '⏸ Pause';
   paused ? srcVideo.pause() : srcVideo.play();
-  log(paused ? 'Paused' : 'Resumed', 'amber');
 });
 
-// ── Sliders ───────────────────────────────────────────────────────────────
-$('slider-blur').addEventListener('input',   () => $('blur-val').textContent  = $('slider-blur').value);
-$('slider-detect').addEventListener('input', () => $('det-val').textContent   = $('slider-detect').value);
+if (btnRetry) btnRetry.addEventListener('click', () => {
+  clearTimeout(retryTimer); retryCount = 0; connectWS();
+});
 
-// ── Turbo mode (CPU max FPS preset) ──────────────────────────────────────
-let turbo = false;
-$('btn-turbo').addEventListener('click', () => {
-  turbo = !turbo;
-  if (turbo) {
-    $('slider-blur').value   = '21';   $('blur-val').textContent  = '21';
-    $('slider-detect').value = '30';   $('det-val').textContent   = '30';
-    $('btn-turbo').textContent = '⚡ Turbo ON';
-    $('btn-turbo').style.borderColor = 'var(--green)';
-    $('btn-turbo').style.color       = 'var(--green)';
-    toast('Turbo mode ON — max CPU FPS', 'info', 2000);
-    log('Turbo mode: blur=21, detect=30', 'green');
-  } else {
-    $('slider-blur').value   = '41';   $('blur-val').textContent  = '41';
-    $('slider-detect').value = '20';   $('det-val').textContent   = '20';
-    $('btn-turbo').textContent = '⚡ Turbo Mode';
-    $('btn-turbo').style.borderColor = '';
-    $('btn-turbo').style.color       = '';
-    toast('Turbo mode OFF', 'info', 2000);
-    log('Normal mode: blur=41, detect=20', 'amber');
-  }
+// ── Blur slider ───────────────────────────────────────────────────────────
+if (blurSlider) blurSlider.addEventListener('input', () => {
+  $('blur-val').textContent = blurSlider.value;
 });
 
 // ── Keyboard ──────────────────────────────────────────────────────────────
 document.addEventListener('keydown', e => {
-  if (e.key === ' ')           { $('btn-pause').click(); e.preventDefault(); }
-  if (e.key === 'Escape')      { $('btn-release').click(); }
-  if (e.key.toLowerCase()==='w') { $('btn-webcam').click(); }
+  if (e.key === ' ')                { if (btnPause)   btnPause.click();   e.preventDefault(); }
+  if (e.key === 'Escape')           { if (btnRelease) btnRelease.click(); }
+  if (e.key.toLowerCase() === 'f') { toggleFullscreen(); }
+  if (e.key.toLowerCase() === 'w') { if (btnWebcam)  btnWebcam.click();  }
 });
 
-// ── Performance presets ───────────────────────────────────────────────────
-const PRESETS = {
-  fast:    { blur: 15, detect: 60, hint: '⚡ Fast — ~20–28 FPS on CPU, minimal blur quality' },
-  balance: { blur: 31, detect: 30, hint: '⚖ Balanced — ~15–20 FPS on CPU' },
-  quality: { blur: 51, detect: 15, hint: '✦ Quality — ~8–14 FPS on CPU, best bokeh' },
-};
-
-function applyPreset(name) {
-  const p = PRESETS[name];
-  if (blurSlider)   { blurSlider.value = p.blur;    $('blur-val').textContent = p.blur; }
-  if (detectSlider) { detectSlider.value = p.detect; $('det-val').textContent  = p.detect; }
-  $('preset-hint').textContent = p.hint;
-  ['fast','balance','quality'].forEach(k => {
-    const btn = document.getElementById('preset-'+k);
-    if (btn) {
-      btn.style.borderColor = k === name ? 'var(--green)' : '';
-      btn.style.color       = k === name ? 'var(--green)' : '';
-    }
-  });
-  log(`Preset: ${name} (blur=${p.blur}, detect=${p.detect})`, 'amber');
-}
-
-$('preset-fast').addEventListener('click',    () => applyPreset('fast'));
-$('preset-balance').addEventListener('click', () => applyPreset('balance'));
-$('preset-quality').addEventListener('click', () => applyPreset('quality'));
-
-// Default to balanced on load
-applyPreset('balance');
-
-// ── Init ──────────────────────────────────────────────────────────────────
 log('FOCUSR ready — choose a video source above', 'green');
-log(`WebSocket target: ${WS_URL}`);
 </script>
 </body>
 </html>

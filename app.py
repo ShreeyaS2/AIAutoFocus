@@ -168,6 +168,8 @@ class Session:
         self.last_dets: list[dict] = []
         self.detect_every = self.DETECT_EVERY
         self.mask_every   = self.MASK_EVERY
+        self.render_bbox = None   # ← ADD THIS
+        self.released = False
 
     # Called from a thread pool — may use blocking CV/numpy freely
     def process_blocking(self, msg: dict) -> tuple[np.ndarray | None, dict]:
@@ -207,12 +209,14 @@ class Session:
         # ── Release ──────────────────────────────────────────────────────
         if msg.get("release"):
             self.tracker.reset()
-            self.tracking = False
-            self.bbox       = None
-            self.mask       = None
-            self.render_bbox = None   # ← clears the blur region
-            self.label      = ""
-            self.conf       = 0.0
+            self.tracking    = False
+            self.bbox        = None
+            self.mask        = None
+            self.render_bbox = None
+            self.label       = ""
+            self.conf        = 0.0
+            self.released    = True
+            self.last_dets   = []   # ← add this — prevents instant reacquire
         cursor_x = msg.get("cursor_x")
         cursor_y = msg.get("cursor_y")
         clicked  = bool(msg.get("clicked", False))
@@ -273,38 +277,26 @@ class Session:
                 y2 = min(H, y + h + dy)
 
                 self.render_bbox = (x1, y1, x2 - x1, y2 - y1)
-            if self.frame_id % self.mask_every == 0 or self.mask is None:
-                # Get actual person shape from MediaPipe
-                raw_mask = self.segmenter.get_mask(frame, new_bbox, self.tracker.label)
 
-                # Expand edges outward
-                expand_px = 40
-                kernel = cv2.getStructuringElement(
-                    cv2.MORPH_ELLIPSE, (expand_px * 2 + 1, expand_px * 2 + 1)
-                )
-                dilated = cv2.dilate(raw_mask, kernel, iterations=1)
+                if self.frame_id % self.mask_every == 0 or self.mask is None:
+                    raw_mask = self.segmenter.get_mask(frame, new_bbox, self.tracker.label)
+                    expand_px = 40
+                    kernel = cv2.getStructuringElement(
+                        cv2.MORPH_ELLIPSE, (expand_px * 2 + 1, expand_px * 2 + 1)
+                    )
+                    dilated = cv2.dilate(raw_mask, kernel, iterations=1)
+                    dist = cv2.distanceTransform(dilated, cv2.DIST_L2, 5)
+                    if dist.max() > 0:
+                        dist = dist / dist.max()
+                    gradient_mask = np.power(dist, 0.5).astype(np.float32)
+                    self.mask = (gradient_mask * 255).astype(np.uint8)
 
-                # ── Gradient fade ───────────────────────────────────────────
-                # Distance transform: each pixel gets its distance from the edge
-                dist = cv2.distanceTransform(dilated, cv2.DIST_L2, 5)
-
-                # Normalize so the furthest point from edge = 1.0
-                if dist.max() > 0:
-                    dist = dist / dist.max()
-
-                # Apply a power curve — higher = sharper center, softer fade
-                # 0.4 = very soft gradient   1.0 = linear   2.0 = sharp center
-                gradient_mask = np.power(dist, 0.5).astype(np.float32)
-
-                # Convert to uint8 (0-255) for renderer
-                self.mask = (gradient_mask * 255).astype(np.uint8)
-            else:
+            else:   # ← now correctly under "if ok"
                 logger.info("Tracker lost — re-detecting…")
                 self.render_bbox = None
                 dets = self.detector.detect(frame)
                 self.last_dets = dets
                 if dets and self.bbox:
-                    # ── IoU match — only reacquire if bbox overlaps enough ──
                     chosen = _best_iou_match(dets, self.bbox, min_iou=0.15)
                     if chosen:
                         self.tracker.reset()
@@ -312,7 +304,6 @@ class Session:
                         self.label = chosen["label"]
                         self.conf  = chosen["conf"]
                     else:
-                        # Nobody overlaps enough — hold last position, don't switch
                         logger.info("No IoU match found — holding position.")
                 else:
                     self.tracking = False
@@ -392,10 +383,15 @@ async def ws_endpoint(ws: WebSocket):
             if busy:
                 try:
                     quick = json.loads(raw)
+# NEW
                     if quick.get("release"):
                         session.tracker.reset()
-                        session.tracking = False
-                        session.bbox = session.mask = None
+                        session.tracking    = False
+                        session.bbox        = None
+                        session.mask        = None
+                        session.render_bbox = None
+                        session.released    = True
+                        session.last_dets   = []   # ← add this too
                 except Exception:
                     pass
                 continue   # drop this frame — server will catch up

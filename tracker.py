@@ -28,10 +28,7 @@ def expand_bbox(
     frame_w: int = 9999,
     frame_h: int = 9999,
 ) -> Tuple[int, int, int, int]:
-    """
-    Expand a bounding box outward by *factor* on every side.
-    Use this for the unblur mask — NOT for the CSRT tracker.
-    """
+
     x, y, w, h = bbox
     dx = int(w * factor)
     dy = int(h * factor)
@@ -50,19 +47,7 @@ def shrink_bbox(
     frame_w: int = 9999,
     frame_h: int = 9999,
 ) -> Tuple[int, int, int, int]:
-    """
-    Shrink a bounding box inward by *factor* on every side.
 
-    Parameters
-    ----------
-    bbox   : (x, y, w, h)  — raw YOLO output
-    factor : fraction to cut from each edge  (default 0.08 = 8 %)
-    frame_w, frame_h : frame dimensions for clamping
-
-    Returns
-    -------
-    (x, y, w, h) — tighter bbox, guaranteed to stay inside the frame
-    """
     x, y, w, h = bbox
     dx = int(w * factor)
     dy = int(h * factor)
