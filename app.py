@@ -33,6 +33,47 @@ from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
+import asyncio
+import base64
+# ... rest of your imports ...
+
+# ── ADD THIS RIGHT HERE — before the Session class ───────────────────────
+def _best_iou_match(
+    dets: list,
+    last_bbox: tuple,
+    min_iou: float = 0.15,
+) -> dict | None:
+    """
+    Return the detection with the highest IoU overlap with last_bbox.
+    Returns None if no detection clears min_iou — prevents switching
+    to a completely different person.
+    """
+    lx, ly, lw, lh = last_bbox
+    best = None
+    best_iou = min_iou
+
+    for det in dets:
+        x, y, w, h = det["raw_bbox"]
+
+        ix = max(lx, x)
+        iy = max(ly, y)
+        iw = min(lx + lw, x + w) - ix
+        ih = min(ly + lh, y + h) - iy
+
+        if iw <= 0 or ih <= 0:
+            continue
+
+        inter = iw * ih
+        union = lw * lh + w * h - inter
+        iou   = inter / union if union > 0 else 0.0
+
+        if iou > best_iou:
+            best_iou = iou
+            best     = det
+
+    return best
+
+
 
 # ── Logging ─────────────────────────────────────────────────────────────
 logging.basicConfig(
@@ -167,9 +208,11 @@ class Session:
         if msg.get("release"):
             self.tracker.reset()
             self.tracking = False
-            self.bbox = self.mask = None
-            self.label = ""; self.conf = 0.0
-
+            self.bbox       = None
+            self.mask       = None
+            self.render_bbox = None   # ← clears the blur region
+            self.label      = ""
+            self.conf       = 0.0
         cursor_x = msg.get("cursor_x")
         cursor_y = msg.get("cursor_y")
         clicked  = bool(msg.get("clicked", False))
@@ -218,33 +261,69 @@ class Session:
             if ok and new_bbox is not None:
                 self.bbox = new_bbox
                 self.conf = float(track_conf)
-                # Only recompute mask every mask_every frames
-                if self.frame_id % self.mask_every == 0 or self.mask is None:
-                    self.mask = self.segmenter.get_mask(
-                        frame, new_bbox, self.tracker.label)
+
+                H, W = frame.shape[:2]
+                x, y, w, h = new_bbox
+                pad = 0.10
+                dx, dy = int(w * pad), int(h * pad)
+
+                x1 = max(0, x - dx)
+                y1 = max(0, y - dy)
+                x2 = min(W, x + w + dx)
+                y2 = min(H, y + h + dy)
+
+                self.render_bbox = (x1, y1, x2 - x1, y2 - y1)
+            if self.frame_id % self.mask_every == 0 or self.mask is None:
+                # Get actual person shape from MediaPipe
+                raw_mask = self.segmenter.get_mask(frame, new_bbox, self.tracker.label)
+
+                # Expand edges outward
+                expand_px = 40
+                kernel = cv2.getStructuringElement(
+                    cv2.MORPH_ELLIPSE, (expand_px * 2 + 1, expand_px * 2 + 1)
+                )
+                dilated = cv2.dilate(raw_mask, kernel, iterations=1)
+
+                # ── Gradient fade ───────────────────────────────────────────
+                # Distance transform: each pixel gets its distance from the edge
+                dist = cv2.distanceTransform(dilated, cv2.DIST_L2, 5)
+
+                # Normalize so the furthest point from edge = 1.0
+                if dist.max() > 0:
+                    dist = dist / dist.max()
+
+                # Apply a power curve — higher = sharper center, softer fade
+                # 0.4 = very soft gradient   1.0 = linear   2.0 = sharp center
+                gradient_mask = np.power(dist, 0.5).astype(np.float32)
+
+                # Convert to uint8 (0-255) for renderer
+                self.mask = (gradient_mask * 255).astype(np.uint8)
             else:
                 logger.info("Tracker lost — re-detecting…")
+                self.render_bbox = None
                 dets = self.detector.detect(frame)
                 self.last_dets = dets
                 if dets and self.bbox:
-                    lx, ly, lw, lh = self.bbox
-                    chosen = self.detector.pick_closest(dets, lx + lw // 2, ly + lh // 2)
+                    # ── IoU match — only reacquire if bbox overlaps enough ──
+                    chosen = _best_iou_match(dets, self.bbox, min_iou=0.15)
                     if chosen:
                         self.tracker.reset()
                         self.tracker.init(frame, chosen["bbox"], chosen["label"], chosen["conf"])
                         self.label = chosen["label"]
                         self.conf  = chosen["conf"]
                     else:
-                        self.tracking = False; self.bbox = self.mask = None
+                        # Nobody overlaps enough — hold last position, don't switch
+                        logger.info("No IoU match found — holding position.")
                 else:
-                    self.tracking = False; self.bbox = self.mask = None
+                    self.tracking = False
+                    self.bbox = self.mask = None
 
         # ── Render ───────────────────────────────────────────────────────
         fps    = self.renderer.tick_fps()
         output = self.renderer.render(
             frame=frame,
-            mask=self.mask  if self.tracking else None,
-            bbox=self.bbox  if self.tracking else None,
+            mask=self.mask        if self.tracking else None,
+            bbox=self.render_bbox if self.tracking and self.render_bbox else self.bbox if self.tracking else None,
             label=self.label, conf=self.conf, fps=fps,
             hover_box=hover_box, hover_label=hover_label,
             all_dets=self.last_dets if not self.tracking else [],

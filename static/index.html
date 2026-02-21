@@ -106,7 +106,7 @@ header { grid-column: 1/-1; display: flex; align-items: center; gap: 20px;
 /* ── Sidebar ── */
 .sidebar { grid-column: 2; display: flex; flex-direction: column;
   border-left: 1px solid var(--border); background: var(--surface); overflow-y: auto; }
-.section { padding: 20px; border-bottom: 1px solid var(--border); }
+.section { padding: 20px; }
 .section:last-child { border-bottom: none; }
 .section-title { font-size: 10px; letter-spacing: .16em; text-transform: uppercase;
   color: var(--muted); margin-bottom: 14px; }
@@ -179,7 +179,6 @@ footer { grid-column: 1/-1; display: flex; align-items: center; gap: 16px;
   <!-- Header -->
   <header>
     <div class="logo">FOCUSR<span>.</span></div>
-    <div class="header-tag">AI Smart AutoFocus · v2.1</div>
     <div class="conn-badge">
       <div class="conn-dot" id="conn-dot"></div>
       <span id="conn-label">disconnected</span>
@@ -229,7 +228,15 @@ footer { grid-column: 1/-1; display: flex; align-items: center; gap: 16px;
       <div class="stat-row"><span class="stat-key">Subject</span><span class="stat-val green" id="stat-label">—</span></div>
       <div class="stat-row"><span class="stat-key">Confidence</span><span class="stat-val" id="stat-conf">—</span></div>
       <div class="stat-row"><span class="stat-key">Objects in scene</span><span class="stat-val" id="stat-dets">0</span></div>
-      <div class="stat-row"><span class="stat-key">Frame</span><span class="stat-val" id="stat-frame">0</span></div>
+      <div class="stat-row"><span class="stat-key" style="display:none">Frame</span><span class="stat-val" style="display:none"id="stat-frame">0</span></div>
+    </div>
+       
+    <div class="section">
+      <div class="section-title">Actions</div>
+      <div style="display:flex;flex-direction:column;gap:8px;">
+        <button class="btn danger" id="btn-release" disabled>✕ Release Lock</button>
+        <button class="btn"        id="btn-switch-src">⇄ Switch Source</button>
+      </div>
     </div>
 
     <div class="section">
@@ -242,57 +249,50 @@ footer { grid-column: 1/-1; display: flex; align-items: center; gap: 16px;
         </label>
       </div>
       <div class="control-row">
-        <span class="control-label">Show track box <span style="color:var(--border2);font-size:10px;">(debug)</span></span>
-        <label class="toggle">
+        <span class="control-label" style="display:none">Show track box <span style="color:var(--border2);font-size:10px;">(debug)</span></span>
+        <label class="toggle" style="display:none">
           <input type="checkbox" id="toggle-showbox"/>
           <div class="toggle-track"></div><div class="toggle-thumb"></div>
         </label>
       </div>
       <div class="control-row">
-        <span class="control-label">Show tracking box</span>
-        <label class="toggle">
+        <span class="control-label" style="display:none">Show tracking box</span>
+        <label class="toggle" style="display:none">
           <input type="checkbox" id="toggle-showbox"/>
           <div class="toggle-track"></div><div class="toggle-thumb"></div>
         </label>
       </div>
       <div class="control-row" style="flex-direction:column;align-items:flex-start;gap:8px;padding-top:10px;">
         <div class="range-wrap">
-          <div class="range-header"><span class="control-label">Bokeh blur</span><span class="stat-val" id="blur-val">31</span></div>
-          <input type="range" id="slider-blur" min="11" max="101" step="2" value="31"/>
+          <div class="range-header"><span class="control-label" style="display:none">Bokeh blur</span><span class="stat-val" id="blur-val" style="display:none">31</span></div>
+          <input type="range" id="slider-blur" min="11" max="101" step="2" value="0" style="display:none"/>
         </div>
       </div>
       <div class="control-row" style="flex-direction:column;align-items:flex-start;gap:8px;padding-top:10px;">
         <div class="range-wrap">
-          <div class="range-header"><span class="control-label">Detect interval</span><span class="stat-val" id="det-val">30</span></div>
-          <input type="range" id="slider-detect" min="5" max="90" step="5" value="30"/>
+          <div class="range-header"><span class="control-label" style="display:none">Detect interval</span><span class="stat-val" id="det-val" style="display:none">30</span></div>
+          <input type="range" id="slider-detect" min="5" max="90" step="5" value="30" style="display:none"/>
         </div>
       </div>
     </div>
 
     <div class="section">
-      <div class="section-title">Performance Preset</div>
-      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:4px;">
+      <div class="section-title" style="display:none">Performance Preset</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:4px;display:none">
         <button class="btn" id="preset-fast"    title="Max FPS — least blur quality">⚡ Fast</button>
         <button class="btn" id="preset-balance" title="Good balance for CPU">⚖ Balanced</button>
         <button class="btn" id="preset-quality" title="Better quality, lower FPS">✦ Quality</button>
       </div>
-      <div style="font-size:10px;color:var(--muted);margin-top:2px;" id="preset-hint">
+      <div style="font-size:10px;color:var(--muted);margin-top:2px;display:none" id="preset-hint">
         Balanced selected — ~15–20 FPS on CPU
       </div>
     </div>
 
-    <div class="section">
-      <div class="section-title">Actions</div>
-      <div style="display:flex;flex-direction:column;gap:8px;">
-        <button class="btn danger" id="btn-release" disabled>✕ Release Lock</button>
-        <button class="btn"        id="btn-turbo">⚡ Turbo Mode</button>
-        <button class="btn"        id="btn-switch-src">⇄ Switch Source</button>
-      </div>
-    </div>
+ 
 
     <div class="section" style="flex:1;">
-      <div class="section-title">Console</div>
-      <div class="log-box" id="log-box"></div>
+      <div class="section-title" style="display:none">Console</div>
+      <div class="log-box" style="display:none"id="log-box"></div>
     </div>
   </div>
 
@@ -321,7 +321,18 @@ const WS_PROTO = location.protocol === 'https:' ? 'wss:' : 'ws:';
 const WS_URL   = `${WS_PROTO}//${location.host}/ws`;
 
 // ── DOM ─────────────────────────────────────────────────────────────────
-const $ = id => document.getElementById(id);
+const $ = id => document.getElementById(id) || {
+  textContent: '', style: {}, classList: { add(){}, remove(){}, contains(){ return false; } },
+  addEventListener(){}, click(){}, disabled: false, value: '0', checked: false,
+};
+
+const blurSlider   = document.getElementById('slider-blur');
+const detectSlider = document.getElementById('slider-detect');
+
+if (blurSlider)   blurSlider.addEventListener('input',   () => $('blur-val').textContent = blurSlider.value);
+if (detectSlider) detectSlider.addEventListener('input', () => $('det-val').textContent  = detectSlider.value);
+
+
 const dropZone     = $('drop-zone');
 const videoArea    = $('video-area');
 const outCanvas    = $('output-canvas');
@@ -661,11 +672,12 @@ $('btn-webcam').addEventListener('click', startWebcam);
 $('btn-file').addEventListener('click',   () => fileInput.click());
 fileInput.addEventListener('change', e => { if (e.target.files[0]) startFile(e.target.files[0]); });
 
-$('btn-release').addEventListener('click', () => {
+const btnRelease = document.getElementById('btn-release');
+if (btnRelease) btnRelease.addEventListener('click', () => {
   if (ws && ws.readyState === 1) {
     ws.send(JSON.stringify({ release: true }));
     log('Lock released', 'amber');
-    $('btn-release').disabled = true;
+    btnRelease.disabled = true;
   }
 });
 
@@ -734,15 +746,15 @@ const PRESETS = {
 
 function applyPreset(name) {
   const p = PRESETS[name];
-  $('slider-blur').value   = p.blur;
-  $('slider-detect').value = p.detect;
-  $('blur-val').textContent = p.blur;
-  $('det-val').textContent  = p.detect;
+  if (blurSlider)   { blurSlider.value = p.blur;    $('blur-val').textContent = p.blur; }
+  if (detectSlider) { detectSlider.value = p.detect; $('det-val').textContent  = p.detect; }
   $('preset-hint').textContent = p.hint;
-  // Highlight active button
   ['fast','balance','quality'].forEach(k => {
-    $('preset-'+k).style.borderColor = k === name ? 'var(--green)' : '';
-    $('preset-'+k).style.color       = k === name ? 'var(--green)' : '';
+    const btn = document.getElementById('preset-'+k);
+    if (btn) {
+      btn.style.borderColor = k === name ? 'var(--green)' : '';
+      btn.style.color       = k === name ? 'var(--green)' : '';
+    }
   });
   log(`Preset: ${name} (blur=${p.blur}, detect=${p.detect})`, 'amber');
 }

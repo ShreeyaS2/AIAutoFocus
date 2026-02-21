@@ -163,10 +163,7 @@ class Renderer:
         x2 = min(x + w, W - 1);  y2 = min(y + h, H - 1)
         x  = max(x, 0);           y  = max(y, 0)
         cv2.rectangle(frame, (x, y), (x2, y2), self.COLOR_HOVER, 2)
-        self._pill_label(
-            frame, f"  {label}  ", x, y, self.COLOR_HOVER,
-            text_color=(15, 15, 15),
-        )
+  
 
     def _draw_hud(self, frame, fps, locked):
         lines  = [
@@ -216,3 +213,22 @@ class Renderer:
         l, a, b = cv2.split(lab)
         lab2 = cv2.merge([self._clahe.apply(l), a, b])
         return cv2.cvtColor(lab2, cv2.COLOR_LAB2BGR)
+    
+
+    def render(self, frame, mask, bbox, **kwargs):
+        if mask is not None:
+            # Create blurred version of full frame
+            blurred = cv2.GaussianBlur(frame, (self.blur_ksize, self.blur_ksize), self.blur_sigma)
+
+            # Alpha blend: sharp where mask=255, blurred where mask=0
+            alpha = mask.astype(np.float32) / 255.0
+            alpha = np.stack([alpha, alpha, alpha], axis=-1)  # make 3-channel
+
+            output = (frame * alpha + blurred * (1.0 - alpha)).astype(np.uint8)
+        else:
+            output = frame.copy()
+
+        # ... rest of your render code (bbox drawing, fps text etc.)
+        return output
+ 
+

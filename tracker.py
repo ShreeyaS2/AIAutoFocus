@@ -22,10 +22,31 @@ import numpy as np
 
 logger = logging.getLogger(__name__)
 
+def expand_bbox(
+    bbox: Tuple[int, int, int, int],
+    factor: float = 0.20,        # 20% padding on each side
+    frame_w: int = 9999,
+    frame_h: int = 9999,
+) -> Tuple[int, int, int, int]:
+    """
+    Expand a bounding box outward by *factor* on every side.
+    Use this for the unblur mask — NOT for the CSRT tracker.
+    """
+    x, y, w, h = bbox
+    dx = int(w * factor)
+    dy = int(h * factor)
+
+    nx = max(0, x - dx)
+    ny = max(0, y - dy)
+    nw = min(w + 2 * dx, frame_w - nx)
+    nh = min(h + 2 * dy, frame_h - ny)
+
+    return nx, ny, nw, nh
+
 
 def shrink_bbox(
     bbox: Tuple[int, int, int, int],
-    factor: float = 0.08,
+    factor: float = 0.0,
     frame_w: int = 9999,
     frame_h: int = 9999,
 ) -> Tuple[int, int, int, int]:
