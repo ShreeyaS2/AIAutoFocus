@@ -32,11 +32,9 @@ body::before {
     rgba(0,0,0,0.06) 2px, rgba(0,0,0,0.06) 4px);
 }
 
-/* ── Layout ── */
 .shell { display: grid; grid-template-rows: 52px 1fr 56px;
   grid-template-columns: 1fr 280px; height: 100vh; }
 
-/* ── Header ── */
 header { grid-column: 1/-1; display: flex; align-items: center; gap: 20px;
   padding: 0 24px; background: var(--surface); border-bottom: 1px solid var(--border); }
 .logo { font-family: var(--font-head); font-size: 22px; font-weight: 800;
@@ -52,7 +50,6 @@ header { grid-column: 1/-1; display: flex; align-items: center; gap: 20px;
 .conn-dot.warn  { background: var(--amber); }
 @keyframes pulse-dot { 0%,100%{opacity:1} 50%{opacity:.4} }
 
-/* ── Video area ── */
 .video-area { grid-column: 1; position: relative; display: flex;
   align-items: center; justify-content: center; background: #060708; overflow: hidden; }
 .drop-zone { position: absolute; inset: 0; display: flex; flex-direction: column;
@@ -78,7 +75,6 @@ header { grid-column: 1/-1; display: flex; align-items: center; gap: 20px;
 .btn.danger:hover { background: var(--red); color: #000; }
 .btn:disabled { opacity: .35; cursor: not-allowed; }
 
-/* ── Canvas — fills the video area, object-fit keeps aspect ratio ── */
 #output-canvas {
   display: none;
   width: 100%;
@@ -89,12 +85,10 @@ header { grid-column: 1/-1; display: flex; align-items: center; gap: 20px;
 #output-canvas.visible { display: block; }
 #src-video { display: none; }
 
-/* ── Fullscreen ── */
 .video-area:-webkit-full-screen { width: 100vw; height: 100vh; }
 .video-area:-moz-full-screen    { width: 100vw; height: 100vh; }
 .video-area:fullscreen          { width: 100vw; height: 100vh; }
 
-/* Fullscreen btn floats over top-right corner of video */
 #btn-fullscreen {
   position: absolute; top: 10px; right: 10px; z-index: 30;
   padding: 6px 10px; font-size: 14px; opacity: 0.6;
@@ -116,7 +110,6 @@ header { grid-column: 1/-1; display: flex; align-items: center; gap: 20px;
 .crosshair::after  { width:100%; height:1px; top:50%; }
 .crosshair.visible { display: block; }
 
-/* ── Toast ── */
 .toast-stack { position: absolute; bottom: 16px; left: 50%; transform: translateX(-50%);
   display: flex; flex-direction: column; gap: 8px; z-index: 100; pointer-events: none;
   min-width: 280px; }
@@ -127,7 +120,6 @@ header { grid-column: 1/-1; display: flex; align-items: center; gap: 20px;
 .toast.info  { background: rgba(0,255,122,.08);  border-color: var(--green); color: var(--green); }
 @keyframes toast-in { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:none} }
 
-/* ── Sidebar ── */
 .sidebar { grid-column: 2; display: flex; flex-direction: column;
   border-left: 1px solid var(--border); background: var(--surface); overflow-y: auto; }
 .section { padding: 20px; border-bottom: 1px solid var(--border); }
@@ -162,7 +154,6 @@ input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 14px;
   pointer-events: none; opacity: 0; animation: ring-expand .6s ease-out; z-index: 15; }
 @keyframes ring-expand { 0%{transform:scale(.2);opacity:.9} 100%{transform:scale(1.4);opacity:0} }
 
-/* ── Footer ── */
 footer { grid-column: 1/-1; display: flex; align-items: center; gap: 16px;
   padding: 0 24px; background: var(--surface); border-top: 1px solid var(--border); }
 .footer-hint { font-size: 11px; color: var(--muted); }
@@ -172,7 +163,6 @@ footer { grid-column: 1/-1; display: flex; align-items: center; gap: 16px;
 #file-input { display: none; }
 .video-area.drag-over { outline: 2px dashed var(--green); outline-offset: -2px; }
 
-/* ── Retry overlay ── */
 .retry-overlay { position: absolute; inset: 0; background: rgba(10,11,13,.85);
   display: none; flex-direction: column; align-items: center; justify-content: center;
   gap: 14px; z-index: 50; }
@@ -186,7 +176,6 @@ footer { grid-column: 1/-1; display: flex; align-items: center; gap: 16px;
 <input type="file" id="file-input" accept="video/*"/>
 
 <div class="shell">
-  <!-- Header -->
   <header>
     <div class="logo">FOCUSR<span>.</span></div>
     <div class="conn-badge">
@@ -195,7 +184,6 @@ footer { grid-column: 1/-1; display: flex; align-items: center; gap: 16px;
     </div>
   </header>
 
-  <!-- Video area -->
   <div class="video-area" id="video-area">
     <div class="drop-zone" id="drop-zone">
       <div class="drop-icon">⌖</div>
@@ -213,13 +201,11 @@ footer { grid-column: 1/-1; display: flex; align-items: center; gap: 16px;
     <video  id="src-video" playsinline muted></video>
     <div class="crosshair" id="crosshair"></div>
 
-    <!-- Fullscreen button — appears once video is live -->
     <button id="btn-fullscreen" title="Fullscreen (F)">⛶</button>
 
-    <!-- Toast stack -->
     <div class="toast-stack" id="toast-stack"></div>
 
-    <!-- Retry overlay -->
+
     <div class="retry-overlay" id="retry-overlay">
       <div class="retry-msg" id="retry-msg">Reconnecting to server…</div>
       <div class="retry-bar"><div class="retry-bar-fill" id="retry-fill"></div></div>
@@ -227,7 +213,6 @@ footer { grid-column: 1/-1; display: flex; align-items: center; gap: 16px;
     </div>
   </div>
 
-  <!-- Sidebar -->
   <div class="sidebar">
     <div class="section">
       <div class="section-title">Status</div>
@@ -272,7 +257,6 @@ footer { grid-column: 1/-1; display: flex; align-items: center; gap: 16px;
     </div>
   </div>
 
-  <!-- Footer -->
   <footer>
     <span class="footer-hint">
       <kbd>click</kbd> lock · <kbd>Space</kbd> pause · <kbd>Esc</kbd> release · <kbd>F</kbd> fullscreen
@@ -287,13 +271,12 @@ footer { grid-column: 1/-1; display: flex; align-items: center; gap: 16px;
 const WS_PROTO = location.protocol === 'https:' ? 'wss:' : 'ws:';
 const WS_URL   = `${WS_PROTO}//${location.host}/ws`;
 
-// ── Safe $ helper ────────────────────────────────────────────────────────
+
 const $ = id => document.getElementById(id) || {
   textContent: '', style: {}, classList: { add(){}, remove(){}, contains(){ return false; } },
   addEventListener(){}, click(){}, disabled: false, value: '0', checked: false,
 };
 
-// ── Real element refs (for listeners) ────────────────────────────────────
 const videoArea    = document.getElementById('video-area');
 const outCanvas    = document.getElementById('output-canvas');
 const srcVideo     = document.getElementById('src-video');
@@ -306,7 +289,7 @@ const retryMsg     = document.getElementById('retry-msg');
 const retryFill    = document.getElementById('retry-fill');
 const connDot      = document.getElementById('conn-dot');
 const connLabel    = document.getElementById('conn-label');
-const logBox       = document.getElementById('log-box');   // may be null — that's fine
+const logBox       = document.getElementById('log-box'); 
 const blurSlider   = document.getElementById('slider-blur');
 const btnRelease   = document.getElementById('btn-release');
 const btnPause     = document.getElementById('btn-pause');
@@ -317,7 +300,7 @@ const btnSwitchSrc = document.getElementById('btn-switch-src');
 const btnFullscreen= document.getElementById('btn-fullscreen');
 const ctx          = outCanvas.getContext('2d');
 
-// ── App state ────────────────────────────────────────────────────────────
+
 let ws           = null;
 let wsReady      = false;
 let retryCount   = 0;
@@ -335,7 +318,6 @@ let frameLoopId  = null;
 const capCanvas = document.createElement('canvas');
 const capCtx    = capCanvas.getContext('2d');
 
-// ── Logging ──────────────────────────────────────────────────────────────
 function log(msg, cls = '') {
   if (!logBox) return;
   const t  = new Date().toLocaleTimeString('en', { hour12: false });
@@ -347,7 +329,6 @@ function log(msg, cls = '') {
   while (logBox.children.length > 150) logBox.removeChild(logBox.firstChild);
 }
 
-// ── Toast ─────────────────────────────────────────────────────────────────
 function toast(msg, type = 'info', duration = 4000) {
   if (!toastStack) return;
   const el = document.createElement('div');
@@ -358,7 +339,7 @@ function toast(msg, type = 'info', duration = 4000) {
   log(msg, type === 'error' ? 'red' : type === 'warn' ? 'amber' : 'green');
 }
 
-// ── Health check ─────────────────────────────────────────────────────────
+
 async function checkHealth() {
   try {
     const r = await fetch('/health', { signal: AbortSignal.timeout(3000) });
@@ -372,7 +353,7 @@ async function checkHealth() {
   } catch { return false; }
 }
 
-// ── WebSocket ─────────────────────────────────────────────────────────────
+
 async function connectWS() {
   if (ws && ws.readyState <= 1) return;
   log('Checking server…', 'amber');
@@ -397,7 +378,6 @@ async function connectWS() {
     if (data.error) { toast(`Server: ${data.error}`, 'error'); return; }
 
 if (data.frame) {
-      // Stay unblurred until user clicks a new person
       if (isReleased) {
         capCtx.drawImage(srcVideo, 0, 0, capCanvas.width || 640, capCanvas.height || 480);
         ctx.drawImage(capCanvas, 0, 0, outCanvas.width, outCanvas.height);
@@ -445,7 +425,6 @@ if (data.frame) {
   });
 }
 
-// ── Retry ─────────────────────────────────────────────────────────────────
 function scheduleRetry(msg) {
   retryCount++;
   const delay = Math.min(2000 * retryCount, 15000);
@@ -475,7 +454,7 @@ function setConnState(state) {
   if (connLabel) connLabel.textContent = label;
 }
 
-// ── Frame send ────────────────────────────────────────────────────────────
+
 function sendFrame() {
   if (!wsReady || !ws || ws.readyState !== 1 || paused || sending) return;
   const vw = srcVideo.videoWidth, vh = srcVideo.videoHeight;
@@ -517,7 +496,6 @@ function startFrameLoop() {
   if (btnPause) btnPause.disabled = false;
 }
 
-// ── Ring on click ─────────────────────────────────────────────────────────
 function spawnRing() {
   if (cursorX == null || !videoArea) return;
   const r = document.createElement('div');
@@ -527,7 +505,7 @@ function spawnRing() {
   setTimeout(() => r.remove(), 700);
 }
 
-// ── Webcam ────────────────────────────────────────────────────────────────
+
 async function startWebcam() {
   try {
     stream = await navigator.mediaDevices.getUserMedia({
@@ -537,11 +515,32 @@ async function startWebcam() {
     await srcVideo.play();
     sourceActive = true;
     toast('Webcam ready', 'info', 2000);
+
+    srcVideo.addEventListener('loadedmetadata', () => {
+      outCanvas.width  = srcVideo.videoWidth;
+      outCanvas.height = srcVideo.videoHeight;
+    }, { once: true });
+
+    const rawLoop = () => {
+      if (!sourceActive) return;
+      if (srcVideo.readyState >= 2 && !outCanvas.classList.contains('visible')) {
+        outCanvas.width  = srcVideo.videoWidth  || 640;
+        outCanvas.height = srcVideo.videoHeight || 480;
+        ctx.drawImage(srcVideo, 0, 0, outCanvas.width, outCanvas.height);
+        outCanvas.classList.add('visible');
+        if (dropZone) dropZone.classList.add('hidden');
+        canvasRect = outCanvas.getBoundingClientRect();
+      }
+      if (!outCanvas.classList.contains('visible')) {
+        requestAnimationFrame(rawLoop);
+      }
+    };
+    requestAnimationFrame(rawLoop);
+
     connectWS();
   } catch(err) { toast(`Webcam error: ${err.message}`, 'error'); }
 }
 
-// ── File video ────────────────────────────────────────────────────────────
 function startFile(file) {
   if (stream) { stream.getTracks().forEach(t => t.stop()); stream = null; }
   srcVideo.srcObject = null;
@@ -553,7 +552,7 @@ function startFile(file) {
   connectWS();
 }
 
-// ── Canvas mouse ──────────────────────────────────────────────────────────
+
 outCanvas.addEventListener('mousemove', e => {
   cursorX = e.clientX; cursorY = e.clientY;
   if (crosshair) { crosshair.style.left = cursorX+'px'; crosshair.style.top = cursorY+'px'; crosshair.classList.add('visible'); }
@@ -565,11 +564,11 @@ outCanvas.addEventListener('mouseleave', () => {
 outCanvas.addEventListener('click', e => {
   cursorX = e.clientX; cursorY = e.clientY;
   clicking = true;
-  isReleased = false;   // ← add this — new click re-enables blur
+  isReleased = false;   
   canvasRect = outCanvas.getBoundingClientRect();
 });
 
-// ── Drag & drop ───────────────────────────────────────────────────────────
+
 if (videoArea) {
   videoArea.addEventListener('dragover',  e => { e.preventDefault(); videoArea.classList.add('drag-over'); });
   videoArea.addEventListener('dragleave', ()  => videoArea.classList.remove('drag-over'));
@@ -581,7 +580,6 @@ if (videoArea) {
   });
 }
 
-// ── Fullscreen ────────────────────────────────────────────────────────────
 function toggleFullscreen() {
   if (!document.fullscreenElement) {
     videoArea.requestFullscreen().catch(() => {});
@@ -592,13 +590,12 @@ function toggleFullscreen() {
 
 document.addEventListener('fullscreenchange', () => {
   if (btnFullscreen) btnFullscreen.textContent = document.fullscreenElement ? '✕' : '⛶';
-  // Recalculate canvas rect after resize
+
   setTimeout(() => { if (outCanvas) canvasRect = outCanvas.getBoundingClientRect(); }, 200);
 });
 
 if (btnFullscreen) btnFullscreen.addEventListener('click', toggleFullscreen);
 
-// ── Button listeners ──────────────────────────────────────────────────────
 if (btnWebcam)    btnWebcam.addEventListener('click', startWebcam);
 if (btnFile)      btnFile.addEventListener('click', () => fileInput && fileInput.click());
 if (fileInput)    fileInput.addEventListener('change', e => { if (e.target.files[0]) startFile(e.target.files[0]); });
@@ -610,7 +607,7 @@ if (btnRelease) btnRelease.addEventListener('click', () => {
     ws.send(JSON.stringify({ release: true }));
   }
   releasedAt = Date.now();
-  isReleased = true;   // ← add this
+  isReleased = true;   
   btnRelease.disabled = true;
   $('stat-state').textContent = 'scanning';
   $('stat-state').style.color = 'var(--amber)';
@@ -643,12 +640,10 @@ if (btnRetry) btnRetry.addEventListener('click', () => {
   clearTimeout(retryTimer); retryCount = 0; connectWS();
 });
 
-// ── Blur slider ───────────────────────────────────────────────────────────
 if (blurSlider) blurSlider.addEventListener('input', () => {
   $('blur-val').textContent = blurSlider.value;
 });
 
-// ── Keyboard ──────────────────────────────────────────────────────────────
 document.addEventListener('keydown', e => {
   if (e.key === ' ')                { if (btnPause)   btnPause.click();   e.preventDefault(); }
   if (e.key === 'Escape')           { if (btnRelease) btnRelease.click(); }

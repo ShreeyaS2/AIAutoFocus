@@ -1,11 +1,4 @@
-"""
-diagnose.py
------------
-Run this FIRST if the server won't connect.
-It checks every dependency and prints exactly what's wrong.
 
-    python diagnose.py
-"""
 
 import sys
 import importlib
@@ -37,7 +30,6 @@ for mod, pkg, install in REQUIRED:
 
 print()
 
-# Check YOLO model
 from pathlib import Path
 model_path = Path("yolov8n.pt")
 if model_path.exists():
@@ -46,7 +38,6 @@ if model_path.exists():
 else:
     print("  ○  yolov8n.pt            not downloaded yet (will auto-download on first run)")
 
-# Check static/index.html
 html_path = Path("static") / "index.html"
 if html_path.exists():
     print(f"  ✓  static/index.html     present")
@@ -54,7 +45,6 @@ else:
     print(f"  ✗  static/index.html     MISSING — make sure it's in ./static/")
     all_ok = False
 
-# Check port 8000
 import socket
 print()
 try:
@@ -67,7 +57,7 @@ except (ConnectionRefusedError, socket.timeout):
 except Exception as e:
     print(f"  ?  Port 8000 check error: {e}")
 
-# GPU
+
 print()
 try:
     import torch
@@ -78,7 +68,6 @@ try:
 except Exception:
     pass
 
-# OpenCV tracker check
 print()
 try:
     import cv2

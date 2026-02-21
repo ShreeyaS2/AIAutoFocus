@@ -6,24 +6,9 @@ Python backend over WebSocket, and displays AI-processed output live.
 
 ---
 
-## 📁 Project Structure
 
-```
-smart_autofocus_web/
-├── app.py              # FastAPI server + WebSocket pipeline
-├── detector.py         # YOLOv8 object detector
-├── tracker.py          # OpenCV CSRT tracker
-├── segmenter.py        # MediaPipe / GrabCut mask generation
-├── renderer.py         # Bokeh compositing & HUD
-├── static/
-│   └── index.html      # Full browser frontend (zero dependencies)
-├── requirements.txt
-└── README.md
-```
 
----
-
-## ⚙️ Installation
+## Installation
 
 ```bash
 # 1. Create & activate virtual environment
@@ -38,11 +23,10 @@ pip uninstall torch torchvision -y
 pip install torch torchvision --index-url https://download.pytorch.org/whl/cu118
 ```
 
-The YOLOv8 model (`yolov8n.pt`, ~6 MB) downloads automatically on first run.
 
 ---
 
-## 🚀 Running
+##  Running
 
 ```bash
 python app.py
@@ -54,7 +38,7 @@ Then open your browser at **http://localhost:8000**
 
 ---
 
-## 🖥️ How to Use
+##  How to Use
 
 1. **Open** `http://localhost:8000` in Chrome / Edge / Firefox.
 2. **Choose a source**:
@@ -77,7 +61,7 @@ Then open your browser at **http://localhost:8000**
 
 ---
 
-## 🏗️ Architecture
+##  Architecture
 
 ```
 Browser                          Python Server (FastAPI)
@@ -114,64 +98,6 @@ video element (src: file/webcam)
     update sidebar HUD
 ```
 
-### WebSocket message format
 
-**Client → Server**
-```json
-{
-  "frame":         "<base64 JPEG>",
-  "cursor_x":      320,
-  "cursor_y":      240,
-  "clicked":       true,
-  "low_light":     false,
-  "bokeh_k":       51,
-  "detect_every":  15,
-  "release":       false
-}
-```
 
-**Server → Client**
-```json
-{
-  "frame":     "<base64 JPEG>",
-  "tracking":  true,
-  "label":     "person",
-  "conf":      0.87,
-  "fps":       24.3,
-  "frame_id":  412,
-  "det_count": 3
-}
-```
 
----
-
-## ⚡ Performance Tips
-
-| Goal | Setting |
-|------|---------|
-| Faster on slow CPU | Detect interval → 30–60 |
-| Better accuracy | Use `yolov8s.pt` (change in `app.py`) |
-| Less network load | Lower JPEG quality in `app.py` (line `IMWRITE_JPEG_QUALITY, 82`) |
-| Low-light scenes | Toggle "Low-light boost" in sidebar |
-
-Expected FPS on modern hardware:
-- CPU only: **18–26 FPS**
-- GPU (RTX): **28–35 FPS**
-
----
-
-## 🐛 Troubleshooting
-
-| Problem | Fix |
-|---------|-----|
-| `Connection refused` in browser | Make sure `python app.py` is running |
-| Webcam not working | Check browser camera permissions |
-| Low FPS | Increase detect interval slider to 30+ |
-| Mask bleeds outside subject | Reduce `edge_blur_ksize` in `segmenter.py` |
-| Server crashes on video | Install `opencv-contrib-python` not plain `opencv-python` |
-| No module `mediapipe` | `pip install mediapipe` |
-
----
-
-## 📜 License
-MIT
