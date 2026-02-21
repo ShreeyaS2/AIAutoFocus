@@ -7,10 +7,8 @@ The browser captures video from a webcam or uploaded file, streams frames to a P
 ---
 
 ## Preview
+<img width="1470" height="830" alt="Screenshot 2026-02-21 at 1 51 34 PM" src="https://github.com/user-attachments/assets/ad532611-9153-415e-bddf-8355e77f06a4" />
 
-![FOCUSR interface](docs/screenshot.png)
-
-> To add a screenshot: create a `docs/` folder in the project root, save your image there as `screenshot.png`, and the above will render automatically on GitHub.
 
 ---
 
